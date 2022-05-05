@@ -177,6 +177,7 @@ reg [31:0] temp;
             end
 
             CPOP: begin
+                // Count the 1-bits in rs1
                 // TODO
             end
 
@@ -222,6 +223,14 @@ reg [31:0] temp;
                     end
                 endcase
 
+            end
+
+            ROL: begin
+                ans = (num1 << num2[4:0]) | (num1 >> (32'd32 - num2[4:0]));
+            end
+
+            ROR: begin
+                ans = (num1 >> num2[4:0] | num1 << (32'd32 - num2[4:0]));
             end
 
         default: begin
