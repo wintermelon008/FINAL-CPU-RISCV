@@ -42,8 +42,7 @@ module CalculateUnit(
 
     output [31:0] answer,
     output [3:0] error
-    );
-endmodule
+ );
 
 
 /*                                              Below is the ALU & FPU working mode table 
@@ -134,3 +133,45 @@ endmodule
     // localparam FCVTWUS = 8'h73;
 
     localparam TEST = 8'hFF;
+
+// Some wires and regs
+    wire [31:0] alu_ans;
+    wire alu_error;
+    wire [31:0] balu_ans;
+    wire balu_error;
+    reg [1:0] ccu_ans_mux_sel;
+
+// Different ALU part
+    ALU alu (
+        .num1(number1), 
+        .num2(number2),                          // The source data
+        .mode_sel(mode),                         // ALU working mode sel
+        .ans(alu_ans),                          // The answer
+        .error(alu_error)  
+    );
+
+    BALU balu(
+        .num1(number1), 
+        .num2(number2),                          // The source data
+        .mode_sel(mode),                         // BALU working mode sel
+        .ans(balu_ans),                          // The answer
+        .error(balu_error)  
+    );
+
+    MUX4 #(32) ccu_ans(
+        .data1(alu_ans),
+        .data2(balu_ans),
+        .data3(32'h0),
+        .data4(32'h0),
+        .sel(ccu_ans_mux_sel),
+        .out(answer)
+    );
+
+    always @(*) begin
+        ccu_ans_mux_sel = 2'b00;
+        if (mode[7:4] == 4'h0 || mode[7:4] == 4'h1 || mode[7:4] == 4'h2)
+            ccu_ans_mux_sel = 2'b00;
+        else if (mode[7:4] == 4'h3)
+            ccu_ans_mux_sel = 2'b01;
+    end
+endmodule

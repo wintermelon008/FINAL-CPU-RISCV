@@ -56,6 +56,7 @@ reg [31:0] temp;
     localparam ROR = 8'h38;      // Low bits reverse
 
     always @(*) begin
+        ans = 0;
         mask = (32'b1) << num2[4:0];
         error = 0;
         case(mode_sel)

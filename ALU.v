@@ -141,14 +141,14 @@ module ALU (
             end
 
             SLT: begin
-                if (sub_flag[1])
+                if (sign_lessthan)
                     ans = 32'b1;
                 else
                     ans = 32'b0;
             end
 
             SLTU: begin
-                if (sub_flag[2])
+                if (unsign_lessthan)
                     ans = 32'b1;
                 else
                     ans = 32'b0;
@@ -204,9 +204,9 @@ module ALU (
 
         // ELSE ======================================================================================================================
 
-            TEST: begin
-                ans = {32{1'b1}};        // All 1
-            end
+            // TEST: begin
+            //     ans = {32{1'b1}};        // All 1
+            // end
 
             default : begin
                 ans = 'b0;
