@@ -54,8 +54,8 @@ module ALU (
     localparam RMV = 8'h05;      // Right shift (logic)
     localparam LMV = 8'h06;      // Left shift  (logic)
     localparam ARMV = 8'h07;     // Right shift (arithmetic)
-    localparam SLT = 8'h08;      // Sign less then set bit
-    localparam SLTU = 8'h09;     // Unsign less then set bit
+    localparam SLTS = 8'h08;      // Sign less then set bit
+    localparam SLTUS = 8'h09;     // Unsign less then set bit
 
     // RISCV 32B
     localparam ANDN = 8'h10;     // Not then and
@@ -140,14 +140,14 @@ module ALU (
                 end
             end
 
-            SLT: begin
+            SLTS: begin
                 if (sign_lessthan)
                     ans = 32'b1;
                 else
                     ans = 32'b0;
             end
 
-            SLTU: begin
+            SLTUS: begin
                 if (unsign_lessthan)
                     ans = 32'b1;
                 else

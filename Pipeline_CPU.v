@@ -88,9 +88,9 @@ reg one;
 // Memorys
 wire [11:0] im_din;
 wire [31:0] im_dout;
-wire [11:0] dm_addr;
-wire [31:0] dm_din, dm_dout;
-wire dm_wen, dm_rd;
+wire [11:0] dmu_addr;
+wire [31:0] dmu_din, dmu_dout;
+wire dmu_we, dmu_rd;
 
 // RFI
 wire [4:0] rfi_sr1_add, rfi_sr2_add, rfi_dr_add;
@@ -108,15 +108,16 @@ wire [15:0] id_ctrl_ex;
 wire [3:0] id_ctrl_mem;
 wire [7:0] id_ctrl_wb;
 wire [23:0] id_mux_sel;
-wire [31:0] id_rf_de, id_is, id_pc, id_imm;
+wire [31:0] id_rf_dr, id_is, id_pc, id_imm;
 // EX part
 wire [3:0] ex_ctrl_mem;
 wire [7:0] ex_ctrl_wb;
 wire [31:0] ex_is, ex_pc, ex_imm, ex_sr1, ex_sr2, ex_sr3, ex_dr;
 wire [31:0] alu_ex, alu_mem, dm_mem, npc_mem;           // Forward
+wire [1:0] ex_npc_mux_sel;
 // MEM part
 wire [7:0] mem_ctrl_wb;
-wire [31:0] mem_is, mem_pc, mem_alu_ans, mem_dm_data, mem_dm_addr, mem_dr;
+wire [31:0] mem_is, mem_pc, mem_alu_ans, mem_dm_data, mem_dmu_addr, mem_dr;
 // WB part
 wire [31:0] wb_is, wb_pc, wb_alu_ans, wb_mdr, wb_csr, wb_dr;
 
@@ -165,8 +166,8 @@ wire if_id_clear, id_ex_clear, ex_mem_clear, mem_wb_clear;
 // Debug data lines
 wire [15:0] im_debug_din;
 wire [31:0] im_debug_dout;
-wire [15:0] dm_debug_din;
-wire [31:0] dm_debug_dout;
+wire [15:0] dmu_debug_addr;
+wire [31:0] dmu_debug_dout;
 wire [4:0] rfi_debug_add;
 wire [31:0] rfi_debug_data;
 wire [4:0] rff_debug_add;
@@ -182,13 +183,9 @@ end
 assign rfi_sr1_add = id_is[19:15];
 assign rfi_sr2_add = id_is[24:20];
 assign rfi_dr_add = wb_dr[4:0];
-assign rff_sr1_add = id_is[19:15];
-assign rff_sr2_add = id_is[24:20];
-assign rff_sr3_add = id_is[31:27];
-assign rff_dr_add = wb_dr[4:0];
 assign im_din = pc_out[13:2];
-assign dm_addr = mem_dm_addr[13:2];
-assign dm_din = mem_dm_data;
+assign dmu_addr = mem_dmu_addr[13:2];
+assign dmu_din = mem_dm_data;
 
 /*===================================== Control Unit signals table =====================================
     control_signals - 35 bit
@@ -209,7 +206,7 @@ assign dm_din = mem_dm_data;
 
     Data memory unit reading and writing enable:
         control_signals[27] - dm_we (1)
-        control_signals[28] - dm_rd (1)
+        control_signals[28] - dmu_rd (1)
 
     B & J control signal:
         control_signals[33:30] - jump_ctrl (4)
@@ -239,8 +236,8 @@ assign ccu_mode = ctrl_ex_dout[7:0];
 // Below is the control signals connection (MEM)
 // CTRL-MEM (0 + ccu_ans_mux(1) + dmwe(1), dmrd(1))
 assign ccu_ans_mux_sel = ctrl_mem_dout[2];
-assign dm_wen = ctrl_mem_dout[1];
-assign dm_rd = ctrl_mem_dout[0];
+assign dmu_we = ctrl_mem_dout[1];
+assign dmu_rd = ctrl_mem_dout[0];
 
 // Below is the control signals connection (WB)
 // CTRL-WB (0000 + rfmux(3), rffwe(1))
@@ -276,14 +273,28 @@ Instruction_MEM im (
     .out_2(im_debug_dout)
 );
 
-Data_MEM dm (
+
+DM_UNIT dmu(
+// SIGNALS
     .clk(clk),
-    .add_1(dm_addr),
-    .data_1(dm_din),
-    .we_1(dm_wen),
-    .radd_2(dm_debug_din),
-    .out_1(dm_dout), 
-    .out_2(dm_debug_dout)
+    .rd(dmu_rd),   // read enable
+    .we(dmu_we),   // write enable
+
+// DATA
+    .dmu_addr(dmu_addr),
+    .dmu_din(dmu_din),
+    .dmu_dout(dmu_dout),
+
+// IO_BUS
+    .io_addr(io_addr),	// I/O address
+    .io_dout(io_dout),	// I/O data output
+    .io_we(io_we),		    // I/O write enable
+    .io_rd(io_rd),		    // I/O read enable
+    .io_din(io_din),	// I/O data input
+
+// DEBUG
+    .debug_addr(dmu_debug_addr),
+    .debug_dout(dmu_debug_dout)
 );
 
 // Reg file
@@ -335,8 +346,8 @@ ID_EX_REG id_ex_reg(
     .is_din(id_is),
     .pc_din(id_pc),
     .imm_din(id_imm),
-    .sr1_din(rf_sr1_out),
-    .sr2_din(rf_sr2_out),
+    .sr1_din(rfi_sr1_data),
+    .sr2_din(rfi_sr2_data),
     .dr_din(id_rf_dr),
     .ctrl_ex_din(id_ctrl_ex),
     .ctrl_mem_din(id_ctrl_mem),       
@@ -344,7 +355,7 @@ ID_EX_REG id_ex_reg(
     .alu_ex_din(ccu_fast_ans),
     .alu_mem_din(mem_alu_ans),
     .npc_mem_din(mem_pc + 32'h4),
-    .dm_mem_din(io_dm_mux_out),
+    .dm_mem_din(dmu_dout),
     .mux_sel_din(id_mux_sel),
  
     .is_dout(ex_is),
@@ -385,7 +396,7 @@ EX_MEM_REG ex_mem_reg(
     .ctrl_mem_dout(ctrl_mem_dout),
     .ctrl_wb_dout(mem_ctrl_wb),
     .alu_ans_dout(mem_alu_ans),
-    .dm_addr_dout(mem_dm_addr),
+    .dm_addr_dout(mem_dmu_addr),
     .dm_data_dout(mem_dm_data),
     .dr_dout(mem_dr)
 
@@ -403,7 +414,7 @@ MEM_WB_REG mem_wb_reg(
     .pc_din(mem_pc),
     .ctrl_wb_din(mem_ctrl_wb),
     .alu_ans_din(mem_alu_ans),
-    .mdr_din(io_dm_mux_out),
+    .mdr_din(dmu_dout),
     .csr_din(),
     .dr_din(mem_dr),
 
@@ -421,7 +432,7 @@ MEM_WB_REG mem_wb_reg(
 // The control unit
 Control #(35) cu(
     .instruction(id_is),
-    .control_signal(control_signals)
+    .control_signals(control_signals)
 );
 
 // The sign extend unit
@@ -459,27 +470,6 @@ CalculateUnit ccu(
 
 
 // MUXs
-
-// MUX2 #(32) io_dm_mux(
-//     .data1(dm_dout),
-//     .data2(io_din),
-//     .sel(io_dm_mux_sel),
-//     .out(io_dm_mux_out)
-// );
-
-MUX2 #(32) rf_sr1_mux(
-    .data1(rfi_sr1_data),
-    .data2(rff_sr1_data),
-    .sel(rf_sr1_mux_sel),
-    .out(rf_sr1_out)
-);
-
-MUX2 #(32) rf_sr2_mux(
-    .data1(rfi_sr2_data),
-    .data2(rff_sr2_data),
-    .sel(rf_sr2_mux_sel),
-    .out(rf_sr2_out)
-);
 
 MUX2 #(32) ccu_ans_mux(
     .data1(ccu_fast_ans),
@@ -597,9 +587,9 @@ Forwarding_Hazard fh(
     .dm_sr2_mux_sel_fh(dm_sr2_mux_sel_fh),
 
     // hazard -- dealing with cpu's stop
-    .pc_en(pc_wen),
-    .if_id_en(if_id_en),
-    .id_ex_clear(id_ex_clear)
+    .pc_en(pc_wen)
+    // .if_id_en(if_id_en),
+    // .id_ex_clear(id_ex_clear)
 );
 
 // SR1&2 mux sel
@@ -643,7 +633,6 @@ DEBUG debug(
 
     .id_npc_mux_sel(npc_mux_sel),
     .id_imm(id_imm),
-    .id_jalr_flag(jalr_flag),
 
     // EX PART
     .ex_pc(ex_pc),
@@ -663,8 +652,8 @@ DEBUG debug(
 
     .ex_alu_number1(sr1_mux_out),
     .ex_alu_number2(sr2_mux_out),
-    .ex_ccu_mode(ccu_mode),
-    .ex_alu_ans(alu_ans),
+    .ex_alu_mode(ccu_mode),
+    .ex_alu_ans(ccu_fast_ans),
 
     .ex_alu_ex(alu_ex),
     .ex_alu_mem(alu_mem),
@@ -680,12 +669,11 @@ DEBUG debug(
     .mem_is(mem_is),
 
     .mem_alu_ans(mem_alu_ans),
-    .mem_dm_data(mem_dm_data),
-    .mem_dm_wen(dm_wen),
+    .mem_sr2(mem_dm_data),
+    .mem_dm_wen(dmu_we),
     .mem_io_rd(io_rd),
-    .mem_dm_dout(dm_dout),
+    .mem_dm_dout(dmu_dout),
     .mem_io_dout(io_din),
-    .mem_io_dm_mux_sel(io_dm_mux_sel),
     
     // WB PART
     .wb_pc(wb_pc),
@@ -696,12 +684,10 @@ DEBUG debug(
     .wb_dm_dout(wb_mdr),
     .rf_write_addr(rfi_dr_add),
     .rf_din(rfi_dr_data),
-    .rfi_wen(rfi_wen),
+    .rf_wen(rfi_wen),
 
     // FH 
     .pc_wen(pc_wen),
-    .if_id_is_wen(if_id_en),
-    .id_ex_reg_clear(id_ex_clear),
     .sr1_mux_sel_fh(sr1_mux_sel_fh),
     .sr2_mux_sel_fh(sr2_mux_sel_fh),
     .b_sr1_mux_sel_fh(b_sr1_mux_sel_fh),
@@ -713,8 +699,8 @@ DEBUG debug(
     .rf_debug_data(rfi_debug_data),
 
     // DM data
-    .dm_debug_addr(dm_debug_din),
-    .dm_debug_data(dm_debug_dout)
+    .dm_debug_addr(dmu_debug_addr),
+    .dm_debug_data(dmu_debug_dout)
 );
 
 endmodule

@@ -66,19 +66,62 @@ reg [4:0] alu_mode;
     localparam FloatMulNegAdd = 7'b1001111;     // RISCV 32F - R4-type
     localparam FloatMulNegSub = 7'b1001011;     // RISCV 32F - R4-type
 
-// Below is the ALU modes list ================================================================================================
- 
-    localparam SUB = 5'd00;
-    localparam ADD = 5'd01;
-    localparam AND = 5'd02;
-    localparam OR = 5'd03;
-    localparam XOR = 5'd04;
-    localparam RMV = 5'd05;      
-    localparam LMV = 5'd06;     
-    localparam ARMV = 5'd07;    
-    localparam SLT = 5'd08;
-    localparam SLTU = 5'd09;
-    localparam TEST = 5'd15;
+/*                                              Below is the CCU working mode table 
+    ========================================================================================================================
+*/
+    // Integer Arithmetic Logic Unit (Except MUL & DIV)
+    // Code begin with 8'h0 ~ 8'h2
+
+    // RISCV 32I
+    localparam SUB = 8'h00;
+    localparam ADD = 8'h01;
+    localparam AND = 8'h02;
+    localparam OR = 8'h03;
+    localparam XOR = 8'h04;
+    localparam RMV = 8'h05;      // Right shift (logic)
+    localparam LMV = 8'h06;      // Left shift  (logic)
+    localparam ARMV = 8'h07;     // Right shift (arithmetic)
+    localparam SLTS = 8'h08;      // Sign less then set bit
+    localparam SLTUS = 8'h09;     // Unsign less then set bit
+
+    // RISCV 32B
+    localparam ANDN = 8'h10;     // Not then and
+    localparam MAX = 8'h11;      
+    localparam MAXU = 8'h12;
+    localparam MIN = 8'h13;
+    localparam MINU = 8'h14;
+    localparam ORN = 8'h15;      // Not then or
+    localparam SH1ADD = 8'h16;
+    localparam SH2ADD = 8'h17;
+    localparam SH3ADD = 8'h18;
+    localparam XNOR = 8'h19;
+
+    // Integer Bit Calculate Unit
+    // Code begin with 8'h3
+
+    // RISCV 32B ALU
+    localparam BCLR = 8'h30;     // Clear single bit
+    localparam BEXT = 8'h31;     // Get single bit
+    localparam BINV = 8'h32;     // Not single bit
+    localparam BSET = 8'h33;     // Set single bit
+    localparam CLZ = 8'h34;      // Leading zeros count
+    localparam CPOP = 8'h35;     // Set bits count     
+    localparam CTZ = 8'h36;      // Suffix zeros count
+    localparam ROL = 8'h37;      // High bits reverse
+    localparam ROR = 8'h38;      // Low bits reverse
+
+    // Integer Arithmetic Unit For MUL & DIV
+    // Code begin with 8'h4
+
+    // RISCV 32M ALU
+    localparam MUL = 8'h40;      // Multiply
+    localparam MULH = 8'h41;     // High bit multiply
+    localparam MULHSU = 8'h42;   // High bit sign - unsign multiply
+    localparam MULHU = 8'h43;    // High bit unsign multiply
+    localparam DIV = 8'h44;      // Divide
+    localparam DIVU = 8'h45;     // Unsigned Divide
+    localparam REM = 8'h46;      // Remind number
+    localparam REMU = 8'h47;     // Unsigned remide number
 
 
 // Below is the Branch control list ================================================================================================
@@ -161,11 +204,11 @@ always @(instruction) begin
                             end
 
                             3'b010: begin   // slt
-                                alu_mode = SLT;
+                                alu_mode = SLTS;
                             end
 
                             3'b011: begin   // sltu
-                                alu_mode = SLTU; 
+                                alu_mode = SLTUS; 
                             end
 
                             3'b100: begin   // xor
@@ -233,11 +276,11 @@ always @(instruction) begin
                     end
 
                     3'b010: begin
-                        alu_mode = SLT;
+                        alu_mode = SLTS;
                     end
 
                     3'b011: begin
-                        alu_mode = SLTU;
+                        alu_mode = SLTUS;
                     end
 
                     3'b100: begin   // xori

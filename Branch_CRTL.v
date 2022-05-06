@@ -77,65 +77,65 @@ assign unsign_less_than = ((sr1[31] == 0 && sr2[31] == 1) ||
 
 always @(*) begin
     case (branch_sel) 
-        NPC: npcmux = PLUS4;
-        OFFPC: npcmux = PC_OFFSET;
+        NPC: npc_mux_sel = PLUS4;
+        OFFPC: npc_mux_sel = PC_OFFSET;
 
         EQ: begin   // equal
             if (equal)
-                npcmux = PC_OFFSET;
+                npc_mux_sel = PC_OFFSET;
             else
-                npcmux = PLUS4;
+                npc_mux_sel = PLUS4;
         end
 
         NEQ: begin  // not equal
             if (~equal)
-                npcmux = PC_OFFSET;
+                npc_mux_sel = PC_OFFSET;
             else
-                npcmux = PLUS4;
+                npc_mux_sel = PLUS4;
         end
 
         SLT: begin  // sign less than
             if (sign_less_than)
-                npcmux = PC_OFFSET;
+                npc_mux_sel = PC_OFFSET;
             else
-                npcmux = PLUS4;
+                npc_mux_sel = PLUS4;
         end
 
         ULT: begin  // unsign less than
             if (unsign_less_than)
-                npcmux = PC_OFFSET;
+                npc_mux_sel = PC_OFFSET;
             else
-                npcmux = PLUS4;
+                npc_mux_sel = PLUS4;
         end
 
         SGT: begin  // sign greater than
             if (~sign_less_than && ~equal)
-                npcmux = PC_OFFSET;
+                npc_mux_sel = PC_OFFSET;
             else
-                npcmux = PLUS4;
+                npc_mux_sel = PLUS4;
         end
 
         UGT: begin  // unsign greater than
             if (~unsign_less_than && ~equal)
-                npcmux = PC_OFFSET;
+                npc_mux_sel = PC_OFFSET;
             else
-                npcmux = PLUS4;
+                npc_mux_sel = PLUS4;
         end
 
         JALR: begin   // jump and link R
-            npcmux = REG_OFFSET;
+            npc_mux_sel = REG_OFFSET;
         end
 
         default: begin
-            npcmux = PLUS4;
+            npc_mux_sel = PLUS4;
         end
     endcase
-    end
 end
+
 
 always @(*) begin
     pc_offset = pc + imm;
-    reg_offset = num1 + imm;
+    reg_offset = sr1 + imm;
 end
 
 endmodule
