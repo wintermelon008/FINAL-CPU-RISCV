@@ -22,7 +22,7 @@
 /*
     ================================  Pipeline_CPU module   ================================
     Author:         Wintermelon
-    Version:        1.1.0
+    Version:        1.1.2
     Last Edit:      2022.5.6
 
     This is the cpu topmodule for Pipeline
@@ -48,6 +48,9 @@
         * MUX8
         * DEBUG
 */
+
+// ### Version 1.1.2 update ###
+// Bugs fixed: MDU mux_sel delay
 
 // ### Version 1.1.0 update ###
 // Changes for RISCV 32I basic, M & B extension CPU

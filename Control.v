@@ -43,7 +43,7 @@ reg rf_sr1_mux_sel, rf_sr2_mux_sel;
 reg rfi_we, rff_we, dm_we, dm_rd;
 reg [3:0] jump_ctrl;
 reg [2:0] mul_mode;
-reg [7:0] alu_mode;
+reg [7:0] ccu_mode;
 reg ccu_ans_mux_sel;
 
 // Below is the instruction opcode list ================================================================================================
@@ -73,7 +73,7 @@ reg ccu_ans_mux_sel;
     // Integer Arithmetic Logic Unit (Except MUL & DIV)
     // Code begin with 8'h0 ~ 8'h2
 
-    // RISCV 32I
+    // RISCV 32I ALU
     localparam SUB = 8'h00;
     localparam ADD = 8'h01;
     localparam AND = 8'h02;
@@ -85,7 +85,7 @@ reg ccu_ans_mux_sel;
     localparam SLTS = 8'h08;      // Sign less then set bit
     localparam SLTUS = 8'h09;     // Unsign less then set bit
 
-    // RISCV 32B
+    // RISCV 32B ALU
     localparam ANDN = 8'h10;     // Not then and
     localparam MAX = 8'h11;      
     localparam MAXU = 8'h12;
@@ -100,7 +100,7 @@ reg ccu_ans_mux_sel;
     // Integer Bit Calculate Unit
     // Code begin with 8'h3
 
-    // RISCV 32B ALU
+    // RISCV 32B BALU
     localparam BCLR = 8'h30;     // Clear single bit
     localparam BEXT = 8'h31;     // Get single bit
     localparam BINV = 8'h32;     // Not single bit
@@ -114,7 +114,7 @@ reg ccu_ans_mux_sel;
     // Integer Arithmetic Unit For MUL & DIV
     // Code begin with 8'h4
 
-    // RISCV 32M ALU
+    // RISCV 32M MDU
     localparam MUL = 8'h40;      // Multiply
     localparam MULH = 8'h41;     // High bit multiply
     localparam MULHSU = 8'h42;   // High bit sign - unsign multiply
@@ -170,7 +170,7 @@ assign control_signals[9] = rf_sr1_mux_sel;
 assign control_signals[10] = rf_sr2_mux_sel;
 assign control_signals[11] = ccu_ans_mux_sel;
 
-assign control_signals[21:14] = alu_mode;
+assign control_signals[21:14] = ccu_mode;
 
 assign control_signals[24] = rfi_we;
 
@@ -187,277 +187,412 @@ assign control_signals[33:30] = jump_ctrl;
 
 
 always @(instruction) begin
+// Initial settings
+    ccu_mode = ADD;
+    ccu_ans_mux_sel = 1'b0;
 
-    ccu_ans_mux_sel = 1'b0; // 暂时为 fast
-       
-        case (instruction[6:0])     // Check the opcode
+    case (instruction[6:0])     // Check the opcode
+        
+        ArithmeticR: begin      // The arithmetic instructions (Reg)
             
-            ArithmeticR: begin      // The arithmetic instructions (Reg)
-                
-                case (instruction[31:25])  // Check the func7
-                    7'b0000000: begin
-                        case (instruction[14:12])   //Check the func3
-                            3'b000: begin   // add
-                                alu_mode = ADD;
-                            end
-
-                            3'b001: begin   // sll
-                                alu_mode = LMV;
-                            end
-
-                            3'b010: begin   // slt
-                                alu_mode = SLTS;
-                            end
-
-                            3'b011: begin   // sltu
-                                alu_mode = SLTUS; 
-                            end
-
-                            3'b100: begin   // xor
-                                alu_mode = XOR;
-                            end
-
-                            3'b101: begin   // srl
-                                alu_mode = RMV;
-                            end
-
-                            3'b110: begin   // or
-                                alu_mode = OR;
-                            end
-
-                            3'b111: begin   // and
-                                alu_mode = AND;
-                            end
-
-                            default: begin  // the same as add
-                                alu_mode = ADD;
-                            end
-                        endcase
-                    end
-
-                    7'b0100000: begin
-                        case (instruction[14:12])   // Check the func3
-                            3'b000: begin   // sub
-                                alu_mode = SUB;
-                            end
-
-                            3'b101: begin   // sra
-                                alu_mode = ARMV;
-                            end
-
-                            default: begin  // the same as add
-                                alu_mode = ADD;
-                            end
-                        endcase
-                    end
-
-                    default: begin  
-                        alu_mode = ADD;
-                    end
-                endcase
-
-                rs1_mux_sel_ctrl = 3'b000;
-                rs2_mux_sel_ctrl = 3'b000;
-                rf_wb_mux_sel = 3'b000;
-                rfi_we = 1'b1;
-                dm_we = 1'b0;
-                dm_rd = 1'b0;
-                jump_ctrl = NPC;
-
-            end
-
-            ArithmeticI: begin
-                case (instruction[14:12]) // Check func3
-
-                    3'b000: begin   // addi
-                        alu_mode = ADD;
-                    end
-
-                    3'b001: begin   // slli
-                        alu_mode = LMV;
-                    end
-
-                    3'b010: begin
-                        alu_mode = SLTS;
-                    end
-
-                    3'b011: begin
-                        alu_mode = SLTUS;
-                    end
-
-                    3'b100: begin   // xori
-                        alu_mode = XOR;
-                    end 
-
-                    3'b101: begin   // srli and srai
-                        if (instruction[31:26] == 6'b000000) begin  //srli
-                            alu_mode = RMV;
+            case (instruction[31:25])  // Check the func7
+                7'b0000000: begin
+                    case (instruction[14:12])   //Check the func3
+                        3'b000: begin   // add
+                            ccu_mode = ADD;
                         end
 
-                        else begin  // srai
-                            alu_mode = ARMV;
+                        3'b001: begin   // sll
+                            ccu_mode = LMV;
                         end
-                    end
 
-                    3'b110: begin   // ori
-                        alu_mode = OR;
-                    end
+                        3'b010: begin   // slt
+                            ccu_mode = SLTS;
+                        end
 
-                    3'b111: begin   // andi
-                        alu_mode = AND;
-                    end
+                        3'b011: begin   // sltu
+                            ccu_mode = SLTUS; 
+                        end
 
-                    default: begin  // the same as addi
-                        alu_mode = ADD;
-                    end
+                        3'b100: begin   // xor
+                            ccu_mode = XOR;
+                        end
 
-                endcase
+                        3'b101: begin   // srl
+                            ccu_mode = RMV;
+                        end
 
-                rs1_mux_sel_ctrl = 3'b000;
-                rs2_mux_sel_ctrl = 3'b001;
-                rf_wb_mux_sel = 3'b000;
-                rfi_we = 1'b1;
-                dm_we = 1'b0;
-                dm_rd = 1'b0;
-                jump_ctrl = NPC;
+                        3'b110: begin   // or
+                            ccu_mode = OR;
+                        end
 
-            end
+                        3'b111: begin   // and
+                            ccu_mode = AND;
+                        end
 
-            Conditionjump: begin
+                    endcase
+                end
 
-                alu_mode = SUB;
+                7'b0100000: begin
+                    case (instruction[14:12])   // Check the func3
+                        3'b000: begin   // sub
+                            ccu_mode = SUB;
+                        end
 
-                case (instruction[14:12]) 
+                        3'b100: begin
+                            ccu_mode = XNOR;
+                        end
 
-                    3'b000: begin   // beq
-                        jump_ctrl = EQ;
-                    end
+                        3'b101: begin   // sra
+                            ccu_mode = ARMV;
+                        end
 
-                    3'b001: begin   // bne
-                        jump_ctrl = NEQ;
-                    end
+                        3'b110: begin
+                            ccu_mode = ORN;
+                        end
 
-                    3'b100: begin   // blt
-                        jump_ctrl = SLT;
-                    end
+                        3'b111: begin
+                            ccu_mode = ANDN;
+                        end
 
-                    3'b101: begin   // bge
-                        jump_ctrl = SGT;
-                    end
+                    endcase
+                end
 
-                    3'b110: begin   // bltu
-                        jump_ctrl = ULT;
-                    end
+                7'b0010000: begin
+                    // Shift and ADD (B)
+                    case (instruction[14:12])
+                        3'b010: begin
+                            ccu_mode = SH1ADD;
+                        end
 
-                    3'b111: begin   // bgeu
-                        jump_ctrl = UGT;
-                    end
+                        3'b100: begin
+                            ccu_mode = SH2ADD;
+                        end
+
+                        3'b110: begin
+                            ccu_mode = SH3ADD;
+                        end
+                    endcase
+                end
+
+                7'b0000101: begin
+                    // MAX MIN
+                    case (instruction[14:12])
+                        3'b100: begin
+                            ccu_mode = MIN;
+                        end
+
+                        3'b101: begin
+                            ccu_mode = MINU;
+                        end
+
+                        3'b110: begin
+                            ccu_mode = MAX;
+                        end
+
+                        3'b111: begin
+                            ccu_mode = MAXU;
+                        end
+
+                        default: begin
+                            ccu_mode = ADD;
+                        end
+                    endcase
+                end
+
+                7'b0110000: begin
+                    // Cut and reverse(B)
+                    case (instruction[14:12])
+                        3'b001: begin
+                            ccu_mode = ROL;
+                        end
+
+                        3'b101: begin
+                            ccu_mode = ROR;
+                        end
+                    endcase
+                end
+
+                7'b0000001: begin
+                    // Mul and Div Instructions
+                    ccu_ans_mux_sel = 1'b1;
+                    case (instruction[14:12]) 
+                        3'b000: begin
+                            ccu_mode = MUL;
+                        end
+
+                        3'b001: begin
+                            ccu_mode = MULH;
+                        end
+
+                        3'b010: begin
+                            ccu_mode = MULHSU;
+                        end
+
+                        3'b011: begin
+                            ccu_mode = MULHU;
+                        end
+
+                        3'b100: begin
+                            ccu_mode = DIV;
+                        end
+
+                        3'b101: begin
+                            ccu_mode = DIVU;
+                        end
+
+                        3'b110: begin
+                            ccu_mode = REM;
+                        end
+
+                        3'b111: begin
+                            ccu_mode = REMU;
+                        end
+                    endcase
+                end
+
+                default: begin  
+                    ccu_mode = ADD;
+                end
+            endcase
+
+            rs1_mux_sel_ctrl = 3'b000;
+            rs2_mux_sel_ctrl = 3'b000;
+            rf_wb_mux_sel = 3'b000;
+            rfi_we = 1'b1;
+            dm_we = 1'b0;
+            dm_rd = 1'b0;
+            jump_ctrl = NPC;
+
+        end
+
+        ArithmeticI: begin
+            case (instruction[31:25])
+                7'b0110000: begin
+                    // Cut and reverse(B)
+                    // Count(B)
+                    case (instruction[14:12])
+                        // 3'b001: begin
+                        //     ccu_mode = ROLI;
+                        // end
+                        3'b001: begin
+                            case (instruction[24:20])
+                                5'b00000: begin
+                                    ccu_mode = CLZ;
+                                end
+
+                                5'b00010: begin
+                                    ccu_mode = CPOP;
+                                end
+
+                                5'b00001: begin
+                                    ccu_mode = CTZ;
+                                end
+                            endcase
+                        end
+
+                        3'b101: begin
+                            ccu_mode = RORI;
+                        end
+                    endcase
+                end
+
+                7'b0000000: begin
+                    case (instruction[14:12]) // Check func3
+
+                        3'b000: begin   // addi
+                            ccu_mode = ADD;
+                        end
+
+                        3'b001: begin   // slli
+                            ccu_mode = LMV;
+                        end
+
+                        3'b010: begin
+                            ccu_mode = SLTS;
+                        end
+
+                        3'b011: begin
+                            ccu_mode = SLTUS;
+                        end
+
+                        3'b100: begin   // xori
+                            ccu_mode = XOR;
+                        end 
+
+                        3'b101: begin   // srli and srai
+                            if (instruction[31:26] == 6'b000000) begin  //srli
+                                ccu_mode = RMV;
+                            end
+
+                            else begin  // srai
+                                ccu_mode = ARMV;
+                            end
+                        end
+
+                        3'b110: begin   // ori
+                            ccu_mode = OR;
+                        end
+
+                        3'b111: begin   // andi
+                            ccu_mode = AND;
+                        end
+
+                        default: begin  // the same as addi
+                            ccu_mode = ADD;
+                        end
+
+                    endcase
+                end
+            endcase
+            
+            
+
+            rs1_mux_sel_ctrl = 3'b000;
+            rs2_mux_sel_ctrl = 3'b001;
+            rf_wb_mux_sel = 3'b000;
+            rfi_we = 1'b1;
+            dm_we = 1'b0;
+            dm_rd = 1'b0;
+            jump_ctrl = NPC;
+
+        end
+
+        Conditionjump: begin
+
+            ccu_mode = SUB;
+
+            case (instruction[14:12]) 
+
+                3'b000: begin   // beq
+                    jump_ctrl = EQ;
+                end
+
+                3'b001: begin   // bne
+                    jump_ctrl = NEQ;
+                end
+
+                3'b100: begin   // blt
+                    jump_ctrl = SLT;
+                end
+
+                3'b101: begin   // bge
+                    jump_ctrl = SGT;
+                end
+
+                3'b110: begin   // bltu
+                    jump_ctrl = ULT;
+                end
+
+                3'b111: begin   // bgeu
+                    jump_ctrl = UGT;
+                end
 
 
-                    default: begin  // the same as beq
-                        jump_ctrl = EQ;
-                    end
-                endcase
+                default: begin  // the same as beq
+                    jump_ctrl = EQ;
+                end
+            endcase
 
-                rs1_mux_sel_ctrl = 3'b000;
-                rs2_mux_sel_ctrl = 3'b000;
-                rf_wb_mux_sel = 3'b000;
-                rfi_we = 1'b0;
-                dm_rd = 1'b0;
-                dm_we = 1'b0;
+            rs1_mux_sel_ctrl = 3'b000;
+            rs2_mux_sel_ctrl = 3'b000;
+            rf_wb_mux_sel = 3'b000;
+            rfi_we = 1'b0;
+            dm_rd = 1'b0;
+            dm_we = 1'b0;
 
-            end
+        end
 
-            MemoryLoad: begin   // lw
-                rs1_mux_sel_ctrl = 3'b000;
-                rs2_mux_sel_ctrl = 2'b001;
-                rf_wb_mux_sel = 3'b010;
-                rfi_we = 1'b1;
-                dm_we = 1'b0;
-                dm_rd = 1'b1;
-                jump_ctrl = NPC;
-                alu_mode = ADD;
-            end
+        MemoryLoad: begin   // lw
+            rs1_mux_sel_ctrl = 3'b000;
+            rs2_mux_sel_ctrl = 2'b001;
+            rf_wb_mux_sel = 3'b010;
+            rfi_we = 1'b1;
+            dm_we = 1'b0;
+            dm_rd = 1'b1;
+            jump_ctrl = NPC;
+            ccu_mode = ADD;
+        end
 
-            MemoryStore: begin  // sw
-                rs1_mux_sel_ctrl = 3'b000;
-                rs2_mux_sel_ctrl = 3'b001;
-                rf_wb_mux_sel = 3'b000;
-                rfi_we = 1'b0;
-                dm_we = 1'b1;
-                dm_rd = 1'b0;
-                jump_ctrl = NPC;
-                alu_mode = ADD;
-            end
+        MemoryStore: begin  // sw
+            rs1_mux_sel_ctrl = 3'b000;
+            rs2_mux_sel_ctrl = 3'b001;
+            rf_wb_mux_sel = 3'b000;
+            rfi_we = 1'b0;
+            dm_we = 1'b1;
+            dm_rd = 1'b0;
+            jump_ctrl = NPC;
+            ccu_mode = ADD;
+        end
 
-            JumpandlinkI: begin  // jal
-                rs1_mux_sel_ctrl = 3'b000;
-                rs2_mux_sel_ctrl = 3'b000;
-                rf_wb_mux_sel = 3'b001;
-                rfi_we = 1'b1;
-                dm_we = 1'b0;
-                dm_rd = 1'b0;
-                jump_ctrl = OFFPC;
-                alu_mode = ADD;
-            end
+        JumpandlinkI: begin  // jal
+            rs1_mux_sel_ctrl = 3'b000;
+            rs2_mux_sel_ctrl = 3'b000;
+            rf_wb_mux_sel = 3'b001;
+            rfi_we = 1'b1;
+            dm_we = 1'b0;
+            dm_rd = 1'b0;
+            jump_ctrl = OFFPC;
+            ccu_mode = ADD;
+        end
 
-            JumpandlinkR: begin  // jalr
-                rs1_mux_sel_ctrl = 3'b000;
-                rs2_mux_sel_ctrl = 3'b001;
-                rf_wb_mux_sel = 3'b001;
-                rfi_we = 1'b1;
-                dm_we = 1'b0;
-                dm_rd = 1'b0;
-                jump_ctrl = JALR;
-                alu_mode = ADD;
-            end
+        JumpandlinkR: begin  // jalr
+            rs1_mux_sel_ctrl = 3'b000;
+            rs2_mux_sel_ctrl = 3'b001;
+            rf_wb_mux_sel = 3'b001;
+            rfi_we = 1'b1;
+            dm_we = 1'b0;
+            dm_rd = 1'b0;
+            jump_ctrl = JALR;
+            ccu_mode = ADD;
+        end
 
-            Adduppertopc: begin  // auipc
-                rs1_mux_sel_ctrl = 3'b001;
-                rs2_mux_sel_ctrl = 3'b001;
-                rf_wb_mux_sel = 3'b000;
-                rfi_we = 1'b1;
-                dm_we = 1'b0;
-                dm_rd = 1'b0;
-                jump_ctrl = NPC;
-                alu_mode = ADD;
-            end
+        Adduppertopc: begin  // auipc
+            rs1_mux_sel_ctrl = 3'b001;
+            rs2_mux_sel_ctrl = 3'b001;
+            rf_wb_mux_sel = 3'b000;
+            rfi_we = 1'b1;
+            dm_we = 1'b0;
+            dm_rd = 1'b0;
+            jump_ctrl = NPC;
+            ccu_mode = ADD;
+        end
 
-            Loadupperimm: begin  // lui     
-                rs1_mux_sel_ctrl = 3'b010;
-                rs2_mux_sel_ctrl = 3'b001;
-                rf_wb_mux_sel = 3'b000;
-                rfi_we = 1'b1;
-                dm_we = 1'b0;
-                dm_rd = 1'b0;
-                jump_ctrl = NPC;
-                alu_mode = ADD;
-            end
+        Loadupperimm: begin  // lui     
+            rs1_mux_sel_ctrl = 3'b010;
+            rs2_mux_sel_ctrl = 3'b001;
+            rf_wb_mux_sel = 3'b000;
+            rfi_we = 1'b1;
+            dm_we = 1'b0;
+            dm_rd = 1'b0;
+            jump_ctrl = NPC;
+            ccu_mode = ADD;
+        end
 
-            7'b0000000: begin   //not an is
-                rs1_mux_sel_ctrl = 3'b000;
-                rs2_mux_sel_ctrl = 3'b000;
-                rf_wb_mux_sel = 3'b000;     // always zero
-                rfi_we = 1'b0;
-                dm_we = 1'b0;
-                dm_rd = 1'b0;
-                jump_ctrl = NPC;
-                alu_mode = ADD;
-            end
+        7'b0000000: begin   //not an is
+            rs1_mux_sel_ctrl = 3'b000;
+            rs2_mux_sel_ctrl = 3'b000;
+            rf_wb_mux_sel = 3'b000;     // always zero
+            rfi_we = 1'b0;
+            dm_we = 1'b0;
+            dm_rd = 1'b0;
+            jump_ctrl = NPC;
+            ccu_mode = ADD;
+        end
 
-            default: begin  // all the signals are zero
-                rs1_mux_sel_ctrl = 2'b00;
-                rs2_mux_sel_ctrl = 2'b00;
-                rf_wb_mux_sel = 3'b000;
-                rfi_we = 1'b0;
-                dm_we = 1'b0;
-                dm_rd = 1'b0;
-                jump_ctrl = NPC;
-                alu_mode = ADD;
-            end
+        default: begin  // all the signals are zero
+            rs1_mux_sel_ctrl = 2'b00;
+            rs2_mux_sel_ctrl = 2'b00;
+            rf_wb_mux_sel = 3'b000;
+            rfi_we = 1'b0;
+            dm_we = 1'b0;
+            dm_rd = 1'b0;
+            jump_ctrl = NPC;
+            ccu_mode = ADD;
+        end
 
-        endcase
-    end
+    endcase
+end
 
 
 

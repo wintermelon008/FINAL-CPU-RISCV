@@ -54,6 +54,7 @@ module MulDiv_Unit(
 
 wire div_ans_ready;
 reg [2:0] mdu_mux_sel;
+wire [2:0] mdu_mux_sel_delay;
 
 wire [31:0] mul_ans_l, mul_ans_h, div_ans, div_rem; 
 wire [63:0] mul_ans;
@@ -119,8 +120,16 @@ MUX8 #(32) mdu_mux (
     .data6(32'h0),
     .data7(32'h0),
     .data8(32'h0),
-    .sel(mdu_mux_sel),
+    .sel(mdu_mux_sel_delay),
     .out(ans)
+);
+
+REG #(3) sel_delay(
+    .din(mdu_mux_sel),
+    .clk(clk),
+    .rstn(rstn),
+    .wen(1'b1),
+    .dout(mdu_mux_sel_delay)
 );
 
 endmodule
