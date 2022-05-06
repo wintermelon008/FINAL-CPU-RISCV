@@ -25,21 +25,22 @@
     Last Edit:      2022.4.27
 
     This is a simple but fast multiply calculate module
-
 */
 
 module FAST_MUL(
+    input clk,  // 100 Mhz
+
     input [31:0] number1,
     input [31:0] number2,  
-    input clk,
+    
     output [63:0] ans
     );
 
 mult_gen_0 multiplier (
-  .CLK(clk),  // input wire CLK
-  .A(number1),      // input wire [30 : 0] A
-  .B(number2),      // input wire [30 : 0] B
-  .P(ans)      // output wire [61 : 0] P
+  .CLK(clk),        // input wire CLK
+  .A(number1),      // input wire [31 : 0] A
+  .B(number2),      // input wire [31 : 0] B
+  .P(ans)           // output wire [63 : 0] P
 );
 
 endmodule

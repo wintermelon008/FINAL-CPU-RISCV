@@ -29,18 +29,19 @@
     With the sub-modules below:
         *ALU(I)
         *ALU(B)
-        *MDU(I)
+        *MDU(M)
 */
 
 
 module CalculateUnit(
+    input clk,
+
     input [31:0] number1,
     input [31:0] number2,
-    input [31:0] number3,
-
     input [7:0] mode,
 
-    output [31:0] answer,
+    output [31:0] fast_answer,
+    output [31:0] slow_answer,      // After a clock cycle
     output [3:0] error
  );
 
@@ -139,14 +140,15 @@ module CalculateUnit(
     wire alu_error;
     wire [31:0] balu_ans;
     wire balu_error;
-    reg [1:0] ccu_ans_mux_sel;
+    reg [1:0] ccu_fastans_mux_sel;
+    reg [1:0] ccu_slowans_mux_sel;
 
 // Different ALU part
     ALU alu (
         .num1(number1), 
         .num2(number2),                          // The source data
         .mode_sel(mode),                         // ALU working mode sel
-        .ans(alu_ans),                          // The answer
+        .ans(alu_ans),                           // The fast_answer
         .error(alu_error)  
     );
 
@@ -154,24 +156,39 @@ module CalculateUnit(
         .num1(number1), 
         .num2(number2),                          // The source data
         .mode_sel(mode),                         // BALU working mode sel
-        .ans(balu_ans),                          // The answer
+        .ans(balu_ans),                          // The fast_answer
         .error(balu_error)  
     );
 
-    MUX4 #(32) ccu_ans(
+    MulDiv_Unit mdu(
+        .clk(clk),
+        .rstn(1'b1),
+
+        .num1(number1),
+        .num2(number2),
+        .mode(mode),
+
+        .ans(slow_answer),
+        .error(error[1:0])
+    );
+
+
+
+    MUX4 #(32) ccu_fast_ans(
         .data1(alu_ans),
         .data2(balu_ans),
         .data3(32'h0),
         .data4(32'h0),
-        .sel(ccu_ans_mux_sel),
-        .out(answer)
+        .sel(ccu_fastans_mux_sel),
+        .out(fast_answer)
     );
 
+
     always @(*) begin
-        ccu_ans_mux_sel = 2'b00;
+        ccu_fastans_mux_sel = 2'b00;
         if (mode[7:4] == 4'h0 || mode[7:4] == 4'h1 || mode[7:4] == 4'h2)
-            ccu_ans_mux_sel = 2'b00;
+            ccu_fastans_mux_sel = 2'b00;
         else if (mode[7:4] == 4'h3)
-            ccu_ans_mux_sel = 2'b01;
+            ccu_fastans_mux_sel = 2'b01;
     end
 endmodule
