@@ -62,7 +62,7 @@
 
 module Pipeline_CPU(
     // cpu control form PDU
-    input clk, 
+    input sys_clk, 
     input rstn,
 
     // IO_BUS
@@ -88,7 +88,7 @@ reg one;
 // Memorys
 wire [11:0] im_din;
 wire [31:0] im_dout;
-wire [11:0] dmu_addr;
+wire [15:0] dmu_addr;
 wire [31:0] dmu_din, dmu_dout;
 wire dmu_we, dmu_rd;
 
@@ -117,7 +117,7 @@ wire [31:0] alu_ex, alu_mem, dm_mem, npc_mem;           // Forward
 wire [1:0] ex_npc_mux_sel;
 // MEM part
 wire [7:0] mem_ctrl_wb;
-wire [31:0] mem_is, mem_pc, mem_alu_ans, mem_dm_data, mem_dmu_addr, mem_dr;
+wire [31:0] mem_is, mem_pc, mem_ccu_fast_ans, mem_dm_data, mem_dmu_addr, mem_dr;
 // WB part
 wire [31:0] wb_is, wb_pc, wb_alu_ans, wb_mdr, wb_csr, wb_dr;
 
@@ -136,6 +136,7 @@ wire [2:0] ex_sr1_mux_sel_cu, ex_sr2_mux_sel_cu;
 wire [31:0] ccu_fast_ans, ccu_slow_ans;
 wire [3:0] ccu_error;
 wire [7:0] ccu_mode;
+wire [31:0] ccu_ans;
 
 
 // MUXs
@@ -159,7 +160,7 @@ wire ccu_ans_mux_sel;
 wire [2:0] b_sr1_mux_sel_fh, b_sr2_mux_sel_fh, sr1_mux_sel_fh, sr2_mux_sel_fh, dm_sr2_mux_sel_fh;
 wire [2:0] ex_b_sr1_mux_sel_fh, ex_b_sr2_mux_sel_fh, ex_sr1_mux_sel_fh, ex_sr2_mux_sel_fh, ex_dm_sr2_mux_sel_fh;
 
-// Pipeline stop unit
+// Pipeline  unit
 wire if_id_wen, id_ex_wen, ex_mem_wen, mem_wb_wen;
 wire if_id_clear, id_ex_clear, ex_mem_clear, mem_wb_clear;
 
@@ -183,8 +184,8 @@ end
 assign rfi_sr1_add = id_is[19:15];
 assign rfi_sr2_add = id_is[24:20];
 assign rfi_dr_add = wb_dr[4:0];
-assign im_din = pc_out[13:2];
-assign dmu_addr = mem_dmu_addr[13:2];
+assign im_din = pc_out[13:2] - 12'hC00;
+assign dmu_addr = mem_dmu_addr[15:0];
 assign dmu_din = mem_dm_data;
 
 /*===================================== Control Unit signals table =====================================
@@ -353,7 +354,7 @@ ID_EX_REG id_ex_reg(
     .ctrl_mem_din(id_ctrl_mem),       
     .ctrl_wb_din(id_ctrl_wb),     
     .alu_ex_din(ccu_fast_ans),
-    .alu_mem_din(mem_alu_ans),
+    .alu_mem_din(ccu_ans),
     .npc_mem_din(mem_pc + 32'h4),
     .dm_mem_din(dmu_dout),
     .mux_sel_din(id_mux_sel),
@@ -395,7 +396,7 @@ EX_MEM_REG ex_mem_reg(
     .pc_dout(mem_pc),
     .ctrl_mem_dout(ctrl_mem_dout),
     .ctrl_wb_dout(mem_ctrl_wb),
-    .alu_ans_dout(mem_alu_ans),
+    .alu_ans_dout(mem_ccu_fast_ans),
     .dm_addr_dout(mem_dmu_addr),
     .dm_data_dout(mem_dm_data),
     .dr_dout(mem_dr)
@@ -413,7 +414,7 @@ MEM_WB_REG mem_wb_reg(
     .is_din(mem_is),
     .pc_din(mem_pc),
     .ctrl_wb_din(mem_ctrl_wb),
-    .alu_ans_din(mem_alu_ans),
+    .alu_ans_din(ccu_ans),
     .mdr_din(dmu_dout),
     .csr_din(),
     .dr_din(mem_dr),
@@ -468,14 +469,48 @@ CalculateUnit ccu(
     .error(ccu_error)
 );
 
+// PCU
+Pipline_CTRL pcu(
+    .clk(sys_clk),    // 100Mhz
+    .rstn(rstn),
+    .if_is(im_dout), 
+    .id_is(id_is), 
+    .ex_is(ex_is), 
+    .mem_is(mem_is), 
+    .wb_is(wb_is),
+    .if_pc(pc_out), 
+    .is_pc(is_pc), 
+    .ex_pc(ex_pc), 
+    .mem_pc(mem_pc), 
+    .wb_pc(wb_pc),
+    .ex_npc_mux_sel(ex_npc_mux_sel),
+    .error(ccu_error),
+
+    .cpu_clk(clk),
+    .if_id_wen(if_id_wen), 
+    .id_ex_wen(id_ex_wen), 
+    .ex_mem_wen(ex_mem_wen), 
+    .mem_wb_wen(mem_wb_wen),
+    .if_id_clear(if_id_clear), 
+    .id_ex_clear(id_ex_clear), 
+    .ex_mem_clear(ex_mem_clear), 
+    .mem_wb_clear(mem_wb_clear),
+    .pc_wen(pc_wen),
+    .b_sr1_mux_sel_fh(b_sr1_mux_sel_fh),
+    .b_sr2_mux_sel_fh(b_sr2_mux_sel_fh),
+    .sr1_mux_sel_fh(sr1_mux_sel_fh),
+    .sr2_mux_sel_fh(sr2_mux_sel_fh),
+    .dm_sr2_mux_sel_fh(dm_sr2_mux_sel_fh)
+);
+
 
 // MUXs
 
 MUX2 #(32) ccu_ans_mux(
-    .data1(ccu_fast_ans),
+    .data1(mem_ccu_fast_ans),
     .data2(ccu_slow_ans),
     .sel(ccu_ans_mux_sel),
-    .out(mem_alu_ans)
+    .out(ccu_ans)
 );
 
 
@@ -483,7 +518,7 @@ MUX4 #(32) npc_mux(
     .data1(pc_out + 32'd4),       
     .data2(pc_offset),       
     .data3(reg_offset),       
-    .data4(),       
+    .data4(32'h0),       
     .sel(npc_mux_sel),
     .out(pc_in)
 );
@@ -570,27 +605,7 @@ MUX8 #(32) dm_sr2_mux(
 
 
 
-// FH
 
-Forwarding_Hazard fh(
-    .id_is(id_is),
-    .ex_is(ex_is),
-    .mem_is(mem_is),
-    .wb_is(wb_is),
-    .npc_mux_sel(ex_npc_mux_sel),
-
-    // forwarding
-    .b_sr1_mux_sel_fh(b_sr1_mux_sel_fh),
-    .b_sr2_mux_sel_fh(b_sr2_mux_sel_fh),
-    .sr1_mux_sel_fh(sr1_mux_sel_fh),
-    .sr2_mux_sel_fh(sr2_mux_sel_fh),
-    .dm_sr2_mux_sel_fh(dm_sr2_mux_sel_fh),
-
-    // hazard -- dealing with cpu's stop
-    .pc_en(pc_wen)
-    // .if_id_en(if_id_en),
-    // .id_ex_clear(id_ex_clear)
-);
 
 // SR1&2 mux sel
 SR_MUX_CTRL sr_mux_cu(
@@ -603,6 +618,7 @@ SR_MUX_CTRL sr_mux_cu(
     .sr2_mux_sel(sr2_mux_sel)
 );
 
+/*
 // Debuger
 DEBUG debug(
     // Debug_BUS
@@ -702,5 +718,6 @@ DEBUG debug(
     .dm_debug_addr(dmu_debug_addr),
     .dm_debug_data(dmu_debug_dout)
 );
+*/
 
 endmodule

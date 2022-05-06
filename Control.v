@@ -43,7 +43,8 @@ reg rf_sr1_mux_sel, rf_sr2_mux_sel;
 reg rfi_we, rff_we, dm_we, dm_rd;
 reg [3:0] jump_ctrl;
 reg [2:0] mul_mode;
-reg [4:0] alu_mode;
+reg [7:0] alu_mode;
+reg ccu_ans_mux_sel;
 
 // Below is the instruction opcode list ================================================================================================
 
@@ -145,21 +146,21 @@ reg [4:0] alu_mode;
         control_signals[8:6] - rfmux (3)
         control_signals[9] - rf-sr1mux (1)
         control_signals[10] - rf-sr2mux (1)
+        control_signals[11] - ccu-ansmux (1)
 
-    ALU mode signal:
-        control_signals[19:14] - alumode (6)
-        control_signals[22:20] - mulmode (3)   // Multiplier & Devider
+    CCU mode signal:
+        control_signals[21:14] - alumode (8)
 
     Regfile writing enable:
         control_signals[24] - rfi_we (1)
-        control_signals[25] - rff_we (1)
 
     Data memory unit reading and writing enable:
         control_signals[27] - dm_we (1)
-        control_signals[28] - dm_rd (1)
+        control_signals[28] - dmu_rd (1)
 
     B & J control signal:
         control_signals[33:30] - jump_ctrl (4)
+
 */ //===================================================================================================
 // Below is the control signals connection
 assign control_signals[2:0] = rs1_mux_sel_ctrl;
@@ -167,12 +168,11 @@ assign control_signals[5:3] = rs2_mux_sel_ctrl;
 assign control_signals[8:6] = rf_wb_mux_sel;
 assign control_signals[9] = rf_sr1_mux_sel;
 assign control_signals[10] = rf_sr2_mux_sel;
+assign control_signals[11] = ccu_ans_mux_sel;
 
-assign control_signals[19:14] = alu_mode;
-assign control_signals[22:20] = mul_mode;
+assign control_signals[21:14] = alu_mode;
 
 assign control_signals[24] = rfi_we;
-assign control_signals[25] = rff_we;
 
 assign control_signals[27] = dm_we;
 assign control_signals[28] = dm_rd;
@@ -187,6 +187,8 @@ assign control_signals[33:30] = jump_ctrl;
 
 
 always @(instruction) begin
+
+    ccu_ans_mux_sel = 1'b0; // 暂时为 fast
        
         case (instruction[6:0])     // Check the opcode
             

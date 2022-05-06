@@ -249,7 +249,7 @@ always @(*) begin
     else if ((id_is[19:15] && id_is[19:15] == mem_is[11:7]) || (id_is[24:20] && id_is[24:20] == mem_is[11:7])) begin
         // id_sr = mem_dr != 0
         if ((mem_is[6:0] == MemoryLoad || mem_is[6:0] == JumpandlinkI) &&
-            (id_is[6:0] == Conditionjump)) begin
+            (id_is[6:0] == Conditionjump || id_is[6:0] == JumpandlinkR)) begin
                 pc_en = 1'b0;
                 if_id_en = 1'b0;
                 id_ex_clear = 1'b1;

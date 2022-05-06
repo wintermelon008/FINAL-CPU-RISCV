@@ -37,7 +37,7 @@ module DM_UNIT(
     input we,   // write enable
 
 // DATA
-    input [31:0] dmu_addr,
+    input [15:0] dmu_addr,
     input [31:0] dmu_din,
     output [31:0] dmu_dout,
 
@@ -63,10 +63,10 @@ wire dmu_dout_mux_sel;
 
 assign io_we = we;
 assign io_rd = rd;
-assign io_addr = dmu_addr[15:0];
+assign io_addr = dmu_addr;
 assign io_dout = dmu_din;
 assign dm_wen = we;
-assign dm_addr = dmu_addr[13:2];
+assign dm_addr = dmu_addr[11:0];
 assign dm_din = dmu_din;
 assign dm_debug_addr = debug_addr;
 
