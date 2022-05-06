@@ -38,7 +38,7 @@ module BALU(
 reg [31:0] mask;
 reg [31:0] temp;
 
-/*                                              Below is the ALU & FPU working mode table 
+/*                                              Below is the BALU working mode table 
     ========================================================================================================================
 */
     // Integer Bit Calculate Unit

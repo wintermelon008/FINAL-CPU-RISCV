@@ -42,7 +42,7 @@ module ALU (
     reg [31:0] temp;
     wire equal, sign_lessthan, unsign_lessthan;
 
-/*                                              Below is the ALU & FPU working mode table 
+/*                                              Below is the ALU working mode table 
     ========================================================================================================================
 */
     // RISCV 32I

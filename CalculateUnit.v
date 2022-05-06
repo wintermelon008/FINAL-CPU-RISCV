@@ -42,11 +42,11 @@ module CalculateUnit(
 
     output [31:0] fast_answer,
     output [31:0] slow_answer,      // After a clock cycle
-    output [3:0] error
+    output reg [3:0] error
  );
 
 
-/*                                              Below is the ALU & FPU working mode table 
+/*                                              Below is the CCU working mode table 
     ========================================================================================================================
 */
     // Integer Arithmetic Logic Unit (Except MUL & DIV)
@@ -135,11 +135,21 @@ module CalculateUnit(
 
     localparam TEST = 8'hFF;
 
+/*                                              Below is the CCU error mode table 
+    ========================================================================================================================
+*/
+    localparam NO_ERROR = 3'b0;
+
+    localparam NO_INSTRUCTION = 3'h1;
+    localparam DIV_BY_ZERO = 3'h2;
+
+
 // Some wires and regs
     wire [31:0] alu_ans;
     wire alu_error;
     wire [31:0] balu_ans;
     wire balu_error;
+    wire [1:0] mdu_error;
     reg [1:0] ccu_fastans_mux_sel;
     reg [1:0] ccu_slowans_mux_sel;
 
@@ -169,7 +179,7 @@ module CalculateUnit(
         .mode(mode),
 
         .ans(slow_answer),
-        .error(error[1:0])
+        .error(mdu_error)
     );
 
 
@@ -191,4 +201,14 @@ module CalculateUnit(
         else if (mode[7:4] == 4'h3)
             ccu_fastans_mux_sel = 2'b01;
     end
+
+    always @(*) begin
+        error = NO_ERROR;
+        if (alu_error == 1 && balu_error == 1 && mdu_error == 2'b11)
+            error = NO_INSTRUCTION;
+        else if (mdu_error == 2'b01)
+            error = DIV_BY_ZERO;
+    end
+
+    
 endmodule

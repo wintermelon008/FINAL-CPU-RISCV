@@ -22,13 +22,13 @@
 /*
     ================================  Pipeline_CPU module   ================================
     Author:         Wintermelon
-    Version:        1.0.8
-    Last Edit:      2022.5.4
+    Version:        1.1.0
+    Last Edit:      2022.5.6
 
     This is the cpu topmodule for Pipeline
 
     Used sub-modules:
-        * ALU
+        * CCU
         * Instruction_MEM
         * Data_MEM
         * REG_FILE
@@ -48,6 +48,9 @@
         * MUX8
         * DEBUG
 */
+
+// ### Version 1.1.0 update ###
+// Changes for RISCV 32I basic, M & B extension CPU
 
 // ### Version 1.0.8 update ###
 // Big changes to datapath
@@ -89,12 +92,10 @@ wire [11:0] dm_addr;
 wire [31:0] dm_din, dm_dout;
 wire dm_wen, dm_rd;
 
-// RF
+// RFI
 wire [4:0] rfi_sr1_add, rfi_sr2_add, rfi_dr_add;
-wire [4:0] rff_sr1_add, rff_sr2_add, rff_sr3_add, rff_dr_add;
 wire [31:0] rfi_sr1_data, rfi_sr2_data, rfi_dr_data;
-wire [31:0] rff_sr1_data, rff_sr2_data, rff_sr3_data, rff_dr_data;
-wire rfi_wen, rff_wen;
+wire rfi_wen;
 
 // PC register
 wire [31:0] pc_in, pc_out;
@@ -112,15 +113,12 @@ wire [31:0] id_rf_de, id_is, id_pc, id_imm;
 wire [3:0] ex_ctrl_mem;
 wire [7:0] ex_ctrl_wb;
 wire [31:0] ex_is, ex_pc, ex_imm, ex_sr1, ex_sr2, ex_sr3, ex_dr;
-wire [31:0] alu_ex, alu_mem, dm_mem, npc_mem;
+wire [31:0] alu_ex, alu_mem, dm_mem, npc_mem;           // Forward
 // MEM part
 wire [7:0] mem_ctrl_wb;
 wire [31:0] mem_is, mem_pc, mem_alu_ans, mem_dm_data, mem_dm_addr, mem_dr;
 // WB part
 wire [31:0] wb_is, wb_pc, wb_alu_ans, wb_mdr, wb_csr, wb_dr;
-
-// wire [1:0] ex_npc_mux_sel;
-// wire ex_jalr_flag;
 
 wire [18:0] sr_mux_dout;
 wire [14:0] ctrl_ex_dout;
@@ -133,12 +131,11 @@ wire [3:0] jump_ctrl;
 wire [2:0] sr1_mux_sel_cu, sr2_mux_sel_cu;
 wire [2:0] ex_sr1_mux_sel_cu, ex_sr2_mux_sel_cu;
 
-// ALU
-wire [31:0] alu_ans;
-wire [4:0] alu_mode;
-wire [2:0] mul_mode;
-wire alu_error;
-wire [2:0] alu_subflag;
+// CCU
+wire [31:0] ccu_fast_ans, ccu_slow_ans;
+wire [3:0] ccu_error;
+wire [7:0] ccu_mode;
+
 
 // MUXs
 // npc-mux & rf(WB)-mux
@@ -153,11 +150,13 @@ wire [31:0] sr1_mux_out, sr2_mux_out, sr3_mux_out, dm_sr2_mux_out;
 // rf(ID)-mux
 wire rf_sr1_mux_sel, rf_sr2_mux_sel;
 wire [31:0] rf_sr1_out, rf_sr2_out;
+// ccu-ans-mux
+wire ccu_ans_mux_sel;
 
 
 // FH
-wire [2:0] b_sr1_mux_sel_fh, b_sr2_mux_sel_fh, sr1_mux_sel_fh, sr2_mux_sel_fh, sr3_mux_sel_fh, dm_sr2_mux_sel_fh;
-wire [2:0] ex_b_sr1_mux_sel_fh, ex_b_sr2_mux_sel_fh, ex_sr1_mux_sel_fh, ex_sr2_mux_sel_fh, ex_sr3_mux_sel_fh, ex_dm_sr2_mux_sel_fh;
+wire [2:0] b_sr1_mux_sel_fh, b_sr2_mux_sel_fh, sr1_mux_sel_fh, sr2_mux_sel_fh, dm_sr2_mux_sel_fh;
+wire [2:0] ex_b_sr1_mux_sel_fh, ex_b_sr2_mux_sel_fh, ex_sr1_mux_sel_fh, ex_sr2_mux_sel_fh, ex_dm_sr2_mux_sel_fh;
 
 // Pipeline stop unit
 wire if_id_wen, id_ex_wen, ex_mem_wen, mem_wb_wen;
@@ -200,14 +199,13 @@ assign dm_din = mem_dm_data;
         control_signals[8:6] - rfmux (3)
         control_signals[9] - rf-sr1mux (1)
         control_signals[10] - rf-sr2mux (1)
+        control_signals[11] - ccu-ansmux (1)
 
-    ALU mode signal:
-        control_signals[19:14] - alumode (6)
-        control_signals[22:20] - mulmode (3)   // Multiplier & Devider
+    CCU mode signal:
+        control_signals[21:14] - alumode (8)
 
     Regfile writing enable:
         control_signals[24] - rfi_we (1)
-        control_signals[25] - rff_we (1)
 
     Data memory unit reading and writing enable:
         control_signals[27] - dm_we (1)
@@ -215,45 +213,44 @@ assign dm_din = mem_dm_data;
 
     B & J control signal:
         control_signals[33:30] - jump_ctrl (4)
-*/ //===================================================================================================
-// CTRL-EX (0 + sr1mux(3), sr2mux(3), alumode(6), mulmode(3))
-// CTRL-MEM (00 + dmwe(1), dmrd(1))
-// CTRL-WB (000 + rfmux(3), rfiwe(1), rffwe(1))
-// MUX-SEL (0000 + sr1(3), sr2(3), sr3(3), bsr1(3), bsr2(3), dsr2(3), npc(2))
 
+*/ //===================================================================================================
+// CTRL-EX (00 + sr1mux(3), sr2mux(3), alumode(8))
+// CTRL-MEM (0 + ccu_ans_mux(1) + dmwe(1), dmrd(1))
+// CTRL-WB (0000 + rfmux(3), rffwe(1))
+// MUX-SEL (0000000 + sr1(3), sr2(3), bsr1(3), bsr2(3), dsr2(3), npc(2))
 
 // Below is the control signals connection (ID)
-assign id_ctrl_ex = {{1'b0}, {control_signals[2:0]}, {control_signals[5:3]}, {control_signals[19:14]}, {control_signals[22:20]}};
-assign id_ctrl_mem = {{2'b0}, {control_signals[27]}, {control_signals[28]}};
-assign id_ctrl_wb = {{3'b0}, {control_signals[8:6]}, {control_signals[24]}, {control_signals[25]}};
-assign id_mux_sel = {{4'b0}, {sr1_mux_sel_fh}, {sr2_mux_sel_fh}, {sr3_mux_sel_fh}, {b_sr1_mux_sel_fh}, {b_sr2_mux_sel_fh}, {dm_sr2_mux_sel_fh}, {npc_mux_sel}};
+assign id_ctrl_ex = {{2'b0}, {control_signals[2:0]}, {control_signals[5:3]}, {control_signals[21:14]}};
+assign id_ctrl_mem = {{1'b0}, {control_signals[11]}, {control_signals[27]}, {control_signals[28]}};
+assign id_ctrl_wb = {{4'b0}, {control_signals[8:6]}, {control_signals[24]}};
+assign id_mux_sel = {{7'b0}, {sr1_mux_sel_fh}, {sr2_mux_sel_fh}, {b_sr1_mux_sel_fh}, {b_sr2_mux_sel_fh}, {dm_sr2_mux_sel_fh}, {npc_mux_sel}};
 assign jump_ctrl = control_signals[33:30];
 assign rf_sr1_mux_sel = control_signals[9];
 assign rf_sr2_mux_sel = control_signals[10];
 assign id_rf_dr = {{27'b0}, {id_is[11:7]}};
 
 // Below is the control signals connection (EX)
-// CTRL-EX (00 + sr1mux(3), sr2mux(3), alumode(5), mulmode(3))
+// CTRL-EX (00 + sr1mux(3), sr2mux(3), alumode(8))
 assign ex_sr1_mux_sel_cu = ctrl_ex_dout[13:11];
 assign ex_sr2_mux_sel_cu = ctrl_ex_dout[10:8];
-assign alu_mode = ctrl_ex_dout[7:3];
-assign mul_mode = ctrl_ex_dout[2:0];
+assign ccu_mode = ctrl_ex_dout[7:0];
 
 // Below is the control signals connection (MEM)
-// CTRL-MEM (00 + dmwe(1), dmrd(1))
+// CTRL-MEM (0 + ccu_ans_mux(1) + dmwe(1), dmrd(1))
+assign ccu_ans_mux_sel = ctrl_mem_dout[2];
 assign dm_wen = ctrl_mem_dout[1];
 assign dm_rd = ctrl_mem_dout[0];
 
 // Below is the control signals connection (WB)
-// CTRL-WB (000 + rfmux(3), rfiwe(1), rffwe(1))
-assign rf_mux_sel = ctrl_wb_dout[4:2];
-assign rfi_wen = ctrl_wb_dout[1];
-assign rff_wen = ctrl_wb_dout[0];
+// CTRL-WB (0000 + rfmux(3), rffwe(1))
+assign rf_mux_sel = ctrl_wb_dout[3:1];
+assign rfi_wen = ctrl_wb_dout[0];
 
 // Below is the EX part mux-sel connection
-assign ex_sr1_mux_sel_fh = sr_mux_dout[19:17];
-assign ex_sr2_mux_sel_fh = sr_mux_dout[16:14];
-assign ex_sr3_mux_sel_fh = sr_mux_dout[13:11];
+// MUX-SEL (0000000 + sr1(3), sr2(3), bsr1(3), bsr2(3), dsr2(3), npc(2))
+assign ex_sr1_mux_sel_fh = sr_mux_dout[16:14];
+assign ex_sr2_mux_sel_fh = sr_mux_dout[13:11];
 assign ex_b_sr1_mux_sel_fh = sr_mux_dout[10:8];
 assign ex_b_sr2_mux_sel_fh = sr_mux_dout[7:5];
 assign ex_dm_sr2_mux_sel_fh = sr_mux_dout[4:2];
@@ -263,7 +260,6 @@ assign ex_npc_mux_sel = sr_mux_dout[1:0];
 assign b_sr1_mux_sel = ex_b_sr1_mux_sel_fh;
 assign b_sr2_mux_sel = ex_b_sr2_mux_sel_fh;
 assign dm_sr2_mux_sel = ex_dm_sr2_mux_sel_fh;
-assign sr3_mux_sel = ex_sr3_mux_sel_fh;
 
 
 
@@ -304,21 +300,6 @@ REG_FILE_I rfi (
     .we(rfi_wen)			            
 );
 
-REG_FILE_F rff (
-    .clk(clk),			           
-    .ra0(rff_sr1_add), 
-    .ra1(rff_sr2_add), 
-    .ra2(rff_sr3_add),	
-    .ra3(rff_debug_add),
-    .rd0(rff_sr1_data), 
-    .rd1(rff_sr2_data), 
-    .rd2(rff_sr3_data),	
-    .rd3(rff_debug_data),
-    .wa(rff_dr_add),		        
-    .wd(rff_dr_data),		        
-    .we(rff_wen)			            
-);
-
 // PC register
 PC pc (
     .clk(clk),
@@ -356,12 +337,11 @@ ID_EX_REG id_ex_reg(
     .imm_din(id_imm),
     .sr1_din(rf_sr1_out),
     .sr2_din(rf_sr2_out),
-    .sr3_din(rff_sr3_data),
     .dr_din(id_rf_dr),
     .ctrl_ex_din(id_ctrl_ex),
     .ctrl_mem_din(id_ctrl_mem),       
     .ctrl_wb_din(id_ctrl_wb),     
-    .alu_ex_din(alu_ans),
+    .alu_ex_din(ccu_fast_ans),
     .alu_mem_din(mem_alu_ans),
     .npc_mem_din(mem_pc + 32'h4),
     .dm_mem_din(io_dm_mux_out),
@@ -372,7 +352,6 @@ ID_EX_REG id_ex_reg(
     .imm_dout(ex_imm),
     .sr1_dout(ex_sr1),
     .sr2_dout(ex_sr2),
-    .sr3_dout(ex_sr3),
     .dr_dout(ex_dr),
     .ctrl_ex_dout(ctrl_ex_dout),
     .ctrl_mem_dout(ex_ctrl_mem),
@@ -396,8 +375,7 @@ EX_MEM_REG ex_mem_reg(
     .pc_din(ex_pc),
     .ctrl_mem_din(ex_ctrl_mem),
     .ctrl_wb_din(ex_ctrl_wb),
-    .alu_ans_din(alu_ans),
-    .alu_ans_mux_sel_din(),
+    .alu_ans_din(ccu_fast_ans),
     .dm_addr_din(sr1_mux_out + sr2_mux_out),
     .dm_data_din(dm_sr2_mux_out),
     .dr_din(ex_dr),
@@ -407,7 +385,6 @@ EX_MEM_REG ex_mem_reg(
     .ctrl_mem_dout(ctrl_mem_dout),
     .ctrl_wb_dout(mem_ctrl_wb),
     .alu_ans_dout(mem_alu_ans),
-    .alu_ans_mux_sel_dout(),
     .dm_addr_dout(mem_dm_addr),
     .dm_data_dout(mem_dm_data),
     .dr_dout(mem_dr)
@@ -466,36 +443,29 @@ Branch_CTRL bcu(
     .reg_offset(reg_offset)
 );
 
+// CCU
 
-// ALU
-
-ALU #(32) alu (
-    .num1(sr1_mux_out), 
-    .num2(sr2_mux_out),             
-    .mul_din(fm_ans),  
-    .mode_sel(alu_mode),                        
-    .ans(alu_ans),                 
-    .sub_flag(alu_subflag),                        
-    .error(alu_error)                               
-);
-
-// MUL
-FAST_MUL fm(
-    .number1(fm_sr1),
-    .number2(fm_sr2),
+CalculateUnit ccu(
     .clk(clk),
-    .ans(fm_ans),
-); 
+
+    .number1(sr1_mux_out),
+    .number2(sr2_mux_out),
+    .mode(ccu_mode),
+
+    .fast_answer(ccu_fast_ans),
+    .slow_answer(ccu_slow_ans),      // After a clock cycle
+    .error(ccu_error)
+);
 
 
 // MUXs
 
-MUX2 #(32) io_dm_mux(
-    .data1(dm_dout),
-    .data2(io_din),
-    .sel(io_dm_mux_sel),
-    .out(io_dm_mux_out)
-);
+// MUX2 #(32) io_dm_mux(
+//     .data1(dm_dout),
+//     .data2(io_din),
+//     .sel(io_dm_mux_sel),
+//     .out(io_dm_mux_out)
+// );
 
 MUX2 #(32) rf_sr1_mux(
     .data1(rfi_sr1_data),
@@ -511,6 +481,12 @@ MUX2 #(32) rf_sr2_mux(
     .out(rf_sr2_out)
 );
 
+MUX2 #(32) ccu_ans_mux(
+    .data1(ccu_fast_ans),
+    .data2(ccu_slow_ans),
+    .sel(ccu_ans_mux_sel),
+    .out(mem_alu_ans)
+);
 
 
 MUX4 #(32) npc_mux(
@@ -588,18 +564,6 @@ MUX8 #(32) sr2_mux(
     .out(sr2_mux_out)
 );
 
-MUX8 #(32) sr3_mux(
-    .data1(ex_sr3),
-    .data2(zero),
-    .data3(zero),
-    .data4(zero),
-    .data5(alu_ex),
-    .data6(alu_mem),
-    .data7(dm_mem),
-    .data8(npc_mem),
-    .sel(sr3_mux_sel),
-    .out(sr3_mux_out)
-);
 
 MUX8 #(32) dm_sr2_mux(
     .data1(ex_sr2),
@@ -616,33 +580,6 @@ MUX8 #(32) dm_sr2_mux(
 
 
 
-MUX8 #(32) fm_sr1_mux (
-    .data1(),
-    .data2(),
-    .data3(),
-    .data4(),
-    .data5(),
-    .data6(),
-    .data7(),
-    .data8(),
-    .sel(),
-    .out(fm_sr1)
-);
-
-MUX8 #(32) fm_sr2_mux (
-    .data1(),
-    .data2(),
-    .data3(),
-    .data4(),
-    .data5(),
-    .data6(),
-    .data7(),
-    .data8(),
-    .sel(),
-    .out(fm_sr2)
-);
-
-
 // FH
 
 Forwarding_Hazard fh(
@@ -657,7 +594,6 @@ Forwarding_Hazard fh(
     .b_sr2_mux_sel_fh(b_sr2_mux_sel_fh),
     .sr1_mux_sel_fh(sr1_mux_sel_fh),
     .sr2_mux_sel_fh(sr2_mux_sel_fh),
-    .sr3_mux_sel_fh(sr3_mux_sel_fh),
     .dm_sr2_mux_sel_fh(dm_sr2_mux_sel_fh),
 
     // hazard -- dealing with cpu's stop
@@ -727,7 +663,7 @@ DEBUG debug(
 
     .ex_alu_number1(sr1_mux_out),
     .ex_alu_number2(sr2_mux_out),
-    .ex_alu_mode(alu_mode),
+    .ex_ccu_mode(ccu_mode),
     .ex_alu_ans(alu_ans),
 
     .ex_alu_ex(alu_ex),

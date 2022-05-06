@@ -19,6 +19,13 @@
 // 
 //////////////////////////////////////////////////////////////////////////////////
 
+/*
+    ================================  FAST_DIV module   ================================
+    Author:         Wintermelon
+    Last Edit:      2022.5.6
+
+    This is a simple but fast divide calculate module
+*/
 
 module FAST_DIV(
     input clk,  // 100 Mhz

@@ -40,8 +40,6 @@ module Forwarding_Hazard(
     output reg [2:0] sr1_mux_sel_fh,
     output reg [2:0] sr2_mux_sel_fh,
     output reg [2:0] dm_sr2_mux_sel_fh,
-    output reg [2:0] fm_sr1_mux_sel_fh,
-    output reg [2:0] fm_sr2_mux_sel_fh,
 
     // hazard -- dealing with cpu's stop
     output reg pc_en,

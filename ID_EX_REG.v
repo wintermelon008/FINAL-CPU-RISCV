@@ -30,9 +30,9 @@
         *IS: current instruction
         *Imm: the immediate number
 
-        *Ctrl-WB: the control signals for WB (000 + rfmux(3), rfiwe(1), rffwe(1))
-        *Ctrl-MEM: the control signals for MEM (00 + dmwe(1), dmrd(1))
-        *Ctrl-EX: the control signals for EX (0 + sr1mux(3), sr2mux(3), alumode(6), mulmode(3))
+        *Ctrl-WB: the control signals for WB (0000 + rfmux(3), rffwe(1))
+        *Ctrl-MEM: the control signals for MEM (0 + ccu_ans_mux(1) + dmwe(1), dmrd(1))
+        *Ctrl-EX: the control signals for EX (00 + sr1mux(3), sr2mux(3), alumode(8))
         
         *SR1: the source number A
         *SR2: the source number B
@@ -44,7 +44,7 @@
         *NPC-MEM: the pc+4 from MEM 
         *DM-MEM: the dm-out form MEM
         *MUX-SEL: the mux control signals (0000 + sr1(3), sr2(3), sr3(3), bsr1(3), bsr2(3), dsr2(3), npc(2))
-    
+
 */
 
 module ID_EX_REG(
@@ -59,7 +59,6 @@ module ID_EX_REG(
     input [31:0] imm_din,
     input [31:0] sr1_din,
     input [31:0] sr2_din,
-    input [31:0] sr3_din,
     input [31:0] dr_din,
     input [15:0] ctrl_ex_din,
     input [3:0] ctrl_mem_din,
@@ -75,7 +74,6 @@ module ID_EX_REG(
     output [31:0] imm_dout,
     output [31:0] sr1_dout,
     output [31:0] sr2_dout,
-    output [31:0] sr3_dout,
     output [31:0] dr_dout,
     output [14:0] ctrl_ex_dout,
     output [3:0] ctrl_mem_dout,
@@ -151,14 +149,6 @@ REG #(32) id_ex_sr1(
 REG #(32) id_ex_sr2(
     .din(sr2_din & ({32{~clear}})),
     .dout(sr2_dout),
-    .clk(clk),
-    .rstn(rstn),
-    .wen(one)
-);
-
-REG #(32) id_ex_sr3(
-    .din(sr3_din & ({32{~clear}})),
-    .dout(sr3_dout),
     .clk(clk),
     .rstn(rstn),
     .wen(one)

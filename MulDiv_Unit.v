@@ -39,7 +39,7 @@ module MulDiv_Unit(
     output reg [1:0] error
 );
 
-/*                                              Below is the ALU & FPU working mode table 
+/*                                              Below is the MDU working mode table 
     ========================================================================================================================
 */
 // RISCV 32M ALU
@@ -74,10 +74,16 @@ always @(*) begin
         end
 
         DIV: begin
+            if (num2 == 0)
+                error = 2'b01;
+
             mdu_mux_sel = 3'h2;
         end
 
         REM: begin
+            if (num2 == 0)
+                error = 2'b01;
+                
             mdu_mux_sel = 3'h3;
         end
 
