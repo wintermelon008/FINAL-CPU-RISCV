@@ -36,7 +36,7 @@ module IM_UNIT(
     output [31:0] imu_dout,
 
 // DEBUG
-    input [31:0] debug_addr,
+    input [11:0] debug_addr,
     output [31:0] debug_dout
 );
 

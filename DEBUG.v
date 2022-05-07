@@ -8,7 +8,7 @@
 */
 module DEBUG(
     // Debug_BUS
-    input [31:0] chk_addr,	        // debug address
+    input [15:0] chk_addr,	        // debug address
     output reg [31:0] chk_data,     // debug data
     output reg [31:0] chk_pc, 	    // current pc
 
@@ -115,13 +115,13 @@ module DEBUG(
 always @(*) begin
     chk_pc = wb_pc;
     rf_debug_addr = chk_addr[4:0];
-    imu_debug_addr = chk_addr[15:0];
-    dmu_debug_addr = chk_addr[15:0];
+    imu_debug_addr = chk_addr[11:0];
+    dmu_debug_addr = chk_addr[11:0];
 end
 
 always @(*) begin
 
-    case (chk_addr[19:16]) 
+    case (chk_addr[15:12]) 
         4'h0: begin
             case (chk_addr[11:0])
 //================================== IF PART ==================================

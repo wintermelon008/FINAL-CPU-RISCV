@@ -96,7 +96,7 @@ PDU_v2 pdu(
 
 Pipeline_CPU cpu(
     // cpu control form PDU
-    .sys_clk(clk), 
+    .sys_clk(cpu_clk), 
     .rstn(one),
 
     // IO_BUS

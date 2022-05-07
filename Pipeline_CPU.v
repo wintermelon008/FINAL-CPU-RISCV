@@ -77,7 +77,7 @@ module Pipeline_CPU(
 
     // Debug_BUS
     output [31:0] chk_pc, 	// Current pc
-    input [31:0] chk_addr,	// Debug address
+    input [15:0] chk_addr,	// Debug address
     output [31:0] chk_data  // Debug data
 );
 
@@ -167,7 +167,7 @@ wire if_id_wen, id_ex_wen, ex_mem_wen, mem_wb_wen;
 wire if_id_clear, id_ex_clear, ex_mem_clear, mem_wb_clear;
 
 // Debug data lines
-wire [15:0] imu_debug_addr;
+wire [11:0] imu_debug_addr;
 wire [31:0] imu_debug_dout;
 wire [15:0] dmu_debug_addr;
 wire [31:0] dmu_debug_dout;
