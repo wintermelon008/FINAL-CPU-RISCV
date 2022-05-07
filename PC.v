@@ -25,7 +25,7 @@
     Last Edit:      2022.4.20
 
     This is a special register.
-    The initial number is 2fff.
+    The initial number is 3000.
     Synchronous setting number, never reset.  
 */
 
@@ -37,7 +37,7 @@ module PC
     output reg [31 : 0] dout        // data output and storage
 );
     initial begin
-        dout <= 32'h2FFC;
+        dout <= 32'h3000;
     end
     always @(posedge clk) begin 
         if (wen) 

@@ -24,7 +24,7 @@ module Pipline_CTRL(
     input clk,    // 100Mhz
     input rstn,
     input [31:0] if_is, id_is, ex_is, mem_is, wb_is,
-    input [31:0] if_pc, is_pc, ex_pc, mem_pc, wb_pc,
+    input [31:0] if_pc, id_pc, ex_pc, mem_pc, wb_pc,
     input [2:0] ex_npc_mux_sel,
     input [3:0] error,
 

@@ -236,7 +236,7 @@ always @(*) begin
     // id and ex
     else if ((id_is[19:15] && id_is[19:15] == ex_is[11:7]) || (id_is[24:20] && id_is[24:20] == ex_is[11:7])) begin
         // id_sr = ex_dr != 0
-        if ((ex_is[6:0] == MemoryLoad) ||
+        if ((ex_is[6:0] == MemoryLoad || (ex_is[6:0] == ArithmeticR && ex_is[31:25] == 7'b0000001)) ||
             ((ex_is[6:0] == ArithmeticI || ex_is[6:0] == ArithmeticR || ex_is[6:0] == Loadupperimm || ex_is[6:0] == Adduppertopc) &&
              (id_is[6:0] == Conditionjump))) begin
                 pc_en = 1'b0;

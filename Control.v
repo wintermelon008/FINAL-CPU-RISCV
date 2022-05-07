@@ -110,6 +110,8 @@ reg ccu_ans_mux_sel;
     localparam CTZ = 8'h36;      // Suffix zeros count
     localparam ROL = 8'h37;      // High bits reverse
     localparam ROR = 8'h38;      // Low bits reverse
+    localparam ROLI = 8'h39;      
+    localparam RORI = 8'h3A;      
 
     // Integer Arithmetic Unit For MUL & DIV
     // Code begin with 8'h4
