@@ -30,7 +30,7 @@
         *IS: current instruction
 
         *Ctr-WB: the control signals for WB (000 + rfmux(3), rfiwe(1), rffwe(1))
-        *Ctrl-MEM: the control signals for MEM (00 + dmwe(1), dmrd(1))
+        *Ctrl-MEM: the control signals for MEM (00 + dmu_mode(3) ccu_ans_mux(1) + dmwe(1), dmrd(1))
 
         *ALU-ANS-CTRL: the mux control for alu answer in MEM
         *ALU-ANS: the alu answer
@@ -51,7 +51,7 @@ module EX_MEM_REG(
     // data
     input [31:0] is_din,
     input [31:0] pc_din,
-    input [3:0] ctrl_mem_din,
+    input [7:0] ctrl_mem_din,
     input [7:0] ctrl_wb_din,
     input [31:0] alu_ans_din,
     input [31:0] dm_addr_din,
@@ -60,7 +60,7 @@ module EX_MEM_REG(
 
     output [31:0] is_dout,
     output [31:0] pc_dout,
-    output [3:0] ctrl_mem_dout,
+    output [7:0] ctrl_mem_dout,
     output [7:0] ctrl_wb_dout,
     output [31:0] alu_ans_dout,
     output [31:0] dm_addr_dout,
@@ -90,8 +90,8 @@ REG #(32) ex_mem_is(
     .wen(one)
 );
 
-REG #(4) ex_mem_ctrl_mem(
-    .din(ctrl_mem_din & ({4{~clear}})),
+REG #(8) ex_mem_ctrl_mem(
+    .din(ctrl_mem_din & ({8{~clear}})),
     .dout(ctrl_mem_dout),
     .clk(clk),
     .rstn(rstn),

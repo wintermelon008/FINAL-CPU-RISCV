@@ -42,8 +42,8 @@ reg [2:0] rf_wb_mux_sel;
 reg rf_sr1_mux_sel, rf_sr2_mux_sel;
 reg rfi_we, rff_we, dm_we, dm_rd;
 reg [3:0] jump_ctrl;
-reg [2:0] mul_mode;
 reg [7:0] ccu_mode;
+reg [2:0] dmu_mode;
 reg ccu_ans_mux_sel;
 
 // Below is the instruction opcode list ================================================================================================
@@ -154,7 +154,10 @@ reg ccu_ans_mux_sel;
         control_signals[21:14] - alumode (8)
 
     Regfile writing enable:
-        control_signals[24] - rfi_we (1)
+        control_signals[22] - rfi_we (1)
+
+    Memory working mode:
+        control-signals[26:24] - dmu_mode (3)
 
     Data memory unit reading and writing enable:
         control_signals[27] - dm_we (1)
@@ -164,22 +167,31 @@ reg ccu_ans_mux_sel;
         control_signals[33:30] - jump_ctrl (4)
 
 */ //===================================================================================================
+
+// Below is the DMU_mode list
+    localparam BY_WORD = 3'h0;
+    localparam BY_HALF = 3'h1;
+    localparam BY_HALF_U = 3'h2;
+    localparam BY_BYTE = 3'h3;
+    localparam BY_BYTE_U = 4'h4;
+
 // Below is the control signals connection
-assign control_signals[2:0] = rs1_mux_sel_ctrl;
-assign control_signals[5:3] = rs2_mux_sel_ctrl;
-assign control_signals[8:6] = rf_wb_mux_sel;
-assign control_signals[9] = rf_sr1_mux_sel;
-assign control_signals[10] = rf_sr2_mux_sel;
-assign control_signals[11] = ccu_ans_mux_sel;
+    assign control_signals[2:0] = rs1_mux_sel_ctrl;
+    assign control_signals[5:3] = rs2_mux_sel_ctrl;
+    assign control_signals[8:6] = rf_wb_mux_sel;
+    assign control_signals[9] = rf_sr1_mux_sel;
+    assign control_signals[10] = rf_sr2_mux_sel;
+    assign control_signals[11] = ccu_ans_mux_sel;
 
-assign control_signals[21:14] = ccu_mode;
+    assign control_signals[21:14] = ccu_mode;
 
-assign control_signals[24] = rfi_we;
+    assign control_signals[22] = rfi_we;
+    assign control_signals[26:24] = dmu_mode;
 
-assign control_signals[27] = dm_we;
-assign control_signals[28] = dm_rd;
+    assign control_signals[27] = dm_we;
+    assign control_signals[28] = dm_rd;
 
-assign control_signals[33:30] = jump_ctrl;
+    assign control_signals[33:30] = jump_ctrl;
 
 
 
@@ -192,6 +204,7 @@ always @(instruction) begin
 // Initial settings
     ccu_mode = ADD;
     ccu_ans_mux_sel = 1'b0;
+    dmu_mode = BY_WORD;
 
     case (instruction[6:0])     // Check the opcode
         
@@ -505,7 +518,39 @@ always @(instruction) begin
 
         end
 
-        MemoryLoad: begin   // lw
+        MemoryLoad: begin   
+            // load
+            case (instruction[14:12]) 
+                3'b000: begin
+                // lb, sb
+                    dmu_mode = BY_BYTE;
+                end
+
+                3'b001: begin
+                // lh, sh
+                    dmu_mode = BY_HALF;
+                end
+
+                3'b010: begin
+                // lw, sw
+                    dmu_mode = BY_WORD;
+                end
+
+                3'b100: begin
+                // lbu
+                    dmu_mode = BY_BYTE_U;
+                end
+
+                3'b101: begin
+                // lhu
+                    dmu_mode = BY_HALF_U;
+                end
+
+                default: begin
+                    dmu_mode = BY_WORD;
+                end
+                
+            endcase
             rs1_mux_sel_ctrl = 3'b000;
             rs2_mux_sel_ctrl = 2'b001;
             rf_wb_mux_sel = 3'b010;

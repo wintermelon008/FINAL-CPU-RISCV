@@ -22,7 +22,7 @@
 /*
     ================================  Pipeline_CPU module   ================================
     Author:         Wintermelon
-    Version:        1.1.5
+    Version:        1.1.6
     Last Edit:      2022.5.9
 
     This is the cpu topmodule for Pipeline
@@ -48,6 +48,9 @@
         * MUX8
         * DEBUG
 */
+
+// ### Version 1.1.6 update ###
+// Add the lb, lbu, lh, lhu, sb, sh
 
 // ### Version 1.1.5 update ###
 // Change the CPU memory structure
@@ -118,6 +121,7 @@ wire [31:0] imu_dout;
 wire [15:0] dmu_addr;
 wire [31:0] dmu_din, dmu_dout;
 wire dmu_we, dmu_rd;
+wire [2:0] dmu_mode;
 
 // RFI
 wire [4:0] rfi_sr1_add, rfi_sr2_add, rfi_dr_add;
@@ -133,12 +137,12 @@ wire [31:0] pc_offset, reg_offset;
 wire [31:0] if_pc;
 // ID part
 wire [15:0] id_ctrl_ex;
-wire [3:0] id_ctrl_mem;
+wire [7:0] id_ctrl_mem;
 wire [7:0] id_ctrl_wb;
 wire [23:0] id_mux_sel;
 wire [31:0] id_rf_dr, id_is, id_pc, id_imm;
 // EX part
-wire [3:0] ex_ctrl_mem;
+wire [7:0] ex_ctrl_mem;
 wire [7:0] ex_ctrl_wb;
 wire [31:0] ex_is, ex_pc, ex_imm, ex_sr1, ex_sr2, ex_sr3, ex_dr;
 wire [31:0] ccu_ex, ccu_mem, dmu_mem, npc_mem;           // Forward
@@ -151,8 +155,8 @@ wire [31:0] wb_is, wb_pc, wb_ccu_ans, wb_dmu_dout, wb_csr, wb_dr;
 
 wire [18:0] sr_mux_dout;
 wire [14:0] ctrl_ex_dout;
-wire [3:0] ctrl_mem_dout;
-wire [3:0] ctrl_wb_dout;
+wire [7:0] ctrl_mem_dout;
+wire [7:0] ctrl_wb_dout;
 
 // CU
 wire [34:0] control_signals;
@@ -229,7 +233,10 @@ assign dmu_din = mem_dmu_data;
         control_signals[21:14] - alumode (8)
 
     Regfile writing enable:
-        control_signals[24] - rfi_we (1)
+        control_signals[22] - rfi_we (1)
+
+    Memory working mode:
+        control-signals[26:24] - dmu_mode (3)
 
     Data memory unit reading and writing enable:
         control_signals[27] - dm_we (1)
@@ -240,14 +247,14 @@ assign dmu_din = mem_dmu_data;
 
 */ //===================================================================================================
 // CTRL-EX (00 + sr1mux(3), sr2mux(3), alumode(8))
-// CTRL-MEM (0 + ccu_ans_mux(1) + dmwe(1), dmrd(1))
+// CTRL-MEM (00 + dmu_mode(3) ccu_ans_mux(1) + dmwe(1), dmrd(1))
 // CTRL-WB (0000 + rfmux(3), rffwe(1))
 // MUX-SEL (0000000 + sr1(3), sr2(3), bsr1(3), bsr2(3), dsr2(3), npc(2))
 
 // Below is the control signals connection (ID)
 assign id_ctrl_ex = {{2'b0}, {control_signals[2:0]}, {control_signals[5:3]}, {control_signals[21:14]}};
-assign id_ctrl_mem = {{1'b0}, {control_signals[11]}, {control_signals[27]}, {control_signals[28]}};
-assign id_ctrl_wb = {{4'b0}, {control_signals[8:6]}, {control_signals[24]}};
+assign id_ctrl_mem = {{2'b0}, {control_signals[26:24]}, {control_signals[11]}, {control_signals[27]}, {control_signals[28]}};
+assign id_ctrl_wb = {{4'b0}, {control_signals[8:6]}, {control_signals[22]}};
 assign id_mux_sel = {{7'b0}, {sr1_mux_sel_fh}, {sr2_mux_sel_fh}, {b_sr1_mux_sel_fh}, {b_sr2_mux_sel_fh}, {dm_sr2_mux_sel_fh}, {npc_mux_sel}};
 assign jump_ctrl = control_signals[33:30];
 assign id_rf_dr = {{27'b0}, {id_is[11:7]}};
@@ -259,10 +266,11 @@ assign ex_sr2_mux_sel_cu = ctrl_ex_dout[10:8];
 assign ccu_mode = ctrl_ex_dout[7:0];
 
 // Below is the control signals connection (MEM)
-// CTRL-MEM (0 + ccu_ans_mux(1) + dmwe(1), dmrd(1))
+// CTRL-MEM (00 + dmu_mode(3) + ccu_ans_mux(1) + dmwe(1), dmrd(1))
 assign ccu_ans_mux_sel = ctrl_mem_dout[2];
 assign dmu_we = ctrl_mem_dout[1];
 assign dmu_rd = ctrl_mem_dout[0];
+assign dmu_mode = ctrl_mem_dout[5:3];
 
 // Below is the control signals connection (WB)
 // CTRL-WB (0000 + rfmux(3), rffwe(1))
@@ -307,6 +315,7 @@ DM_UNIT dmu(
     .clk(clk),
     .rd(dmu_rd),   // read enable
     .we(dmu_we),   // write enable
+    .mode(dmu_mode),
 
 // DATA
     .dmu_addr(dmu_addr),

@@ -35,6 +35,7 @@ module DM_UNIT(
     input clk,
     input rd,   // read enable
     input we,   // write enable
+    input [2:0] mode,   // dmu mode
 
 // DATA
     input [15:0] dmu_addr,
@@ -77,6 +78,7 @@ Data_MEM dm (
     .add_1(dm_addr),
     .data_1(dm_din),
     .we_1(dm_wen),
+    .mode(mode),
     .radd_2(debug_addr),
     .out_1(dm_dout), 
     .out_2(debug_dout),

@@ -31,7 +31,7 @@
         *Imm: the immediate number
 
         *Ctrl-WB: the control signals for WB (0000 + rfmux(3), rffwe(1))
-        *Ctrl-MEM: the control signals for MEM (0 + ccu_ans_mux(1) + dmwe(1), dmrd(1))
+        *Ctrl-MEM: the control signals for MEM (00 + dmu_mode(3) ccu_ans_mux(1) + dmwe(1), dmrd(1))
         *Ctrl-EX: the control signals for EX (00 + sr1mux(3), sr2mux(3), alumode(8))
         
         *SR1: the source number A
@@ -61,7 +61,7 @@ module ID_EX_REG(
     input [31:0] sr2_din,
     input [31:0] dr_din,
     input [15:0] ctrl_ex_din,
-    input [3:0] ctrl_mem_din,
+    input [7:0] ctrl_mem_din,
     input [7:0] ctrl_wb_din,
     input [31:0] ccu_ex_din,
     input [31:0] ccu_mem_din,
@@ -75,9 +75,9 @@ module ID_EX_REG(
     output [31:0] sr1_dout,
     output [31:0] sr2_dout,
     output [31:0] dr_dout,
-    output [14:0] ctrl_ex_dout,
-    output [3:0] ctrl_mem_dout,
-    output [3:0] ctrl_wb_dout,
+    output [15:0] ctrl_ex_dout,
+    output [7:0] ctrl_mem_dout,
+    output [7:0] ctrl_wb_dout,
     output [31:0] ccu_ex_dout,
     output [31:0] ccu_mem_dout,
     output [31:0] npc_mem_dout,
@@ -122,8 +122,8 @@ REG #(16) id_ex_ctrl_ex(
     .wen(one)
 );
 
-REG #(4) id_ex_ctrl_mem(
-    .din(ctrl_mem_din & ({4{~clear}})),
+REG #(8) id_ex_ctrl_mem(
+    .din(ctrl_mem_din & ({8{~clear}})),
     .dout(ctrl_mem_dout),
     .clk(clk),
     .rstn(rstn),
