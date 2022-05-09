@@ -52,8 +52,18 @@ module MulDiv_Unit(
     localparam REM = 8'h46;      // Remind number
     localparam REMU = 8'h47;     // Unsigned remide number
 
+// MDU ERROR table
+    localparam NO_ERROR = 2'b00;
+    localparam DIVID_BY_ZERO = 2'b01;
+    localparam MODE_ERROR = 2'b11;
+
+// DIVIDER SIGN MODE table
+    localparam SIGNED = 1'b0;
+    localparam UNSIGNED = 1'b1;
+
 wire div_ans_ready;
 reg [2:0] mdu_mux_sel;
+reg sign_mode;
 wire [2:0] mdu_mux_sel_delay;
 
 wire [31:0] mul_ans_l, mul_ans_h, div_ans, div_rem; 
@@ -63,7 +73,8 @@ assign mul_ans_l = mul_ans[31:0];
 assign mul_ans_h = mul_ans[63:32];
 
 always @(*) begin
-    error = 2'b00;
+    sign_mode = SIGNED;
+    error = NO_ERROR;
     mdu_mux_sel = 3'h7;     // zero
     case (mode)
         MUL: begin
@@ -76,20 +87,32 @@ always @(*) begin
 
         DIV: begin
             if (num2 == 0)
-                error = 2'b01;
-
+                error = DIVID_BY_ZERO;
             mdu_mux_sel = 3'h2;
+        end
+
+        DIVU: begin
+            if (num2 == 0)
+                error = DIVID_BY_ZERO;
+            mdu_mux_sel = 3'h2;
+            sign_mode = UNSIGNED;               
         end
 
         REM: begin
             if (num2 == 0)
-                error = 2'b01;
-                
+                error = DIVID_BY_ZERO;
             mdu_mux_sel = 3'h3;
         end
 
+        REMU: begin
+            if (num2 == 0)
+                error = DIVID_BY_ZERO;
+            mdu_mux_sel = 3'h3;
+            sign_mode = UNSIGNED;
+        end
+
         default: begin
-            error = 2'b11;          // mul mode error(not M instruction)
+            error = MODE_ERROR;         // mul mode error(not M instruction)
         end
     endcase
 end
@@ -105,6 +128,8 @@ FAST_MUL mul(
 FAST_DIV div(
     .number1(num1),
     .number2(num2),  
+    .sign_mode(sign_mode),
+
     .clk(clk),
     .ans(div_ans),
     .remind(div_rem),

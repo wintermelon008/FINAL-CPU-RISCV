@@ -19,6 +19,15 @@
 // 
 //////////////////////////////////////////////////////////////////////////////////
 
+/*
+    ================================   Pipline_CTRL module   ================================
+    Author:         Wintermelon
+    Last Edit:      2022.5.9
+
+    This is the PCU
+    Function: 1. Solve the interrupt (with CSRs inside)
+              2. Solve the data hazard (with the forwarding control, pipeline stop etc.)
+*/
 
 module Pipline_CTRL(
     input clk,    // 100Mhz
