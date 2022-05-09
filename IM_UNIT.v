@@ -33,47 +33,85 @@ module IM_UNIT(
     input clk,
 // DATA
     input [15:0] imu_addr,
-    output [31:0] imu_dout,
+    output reg [31:0] imu_dout,
 
 // DEBUG
-    input [11:0] debug_addr,
-    output [31:0] debug_dout
+    input [19:0] debug_addr,
+    output reg [31:0] debug_dout,
+
+    output reg imu_error    // when 1, the imu address access error
 );
 
-// Suppose the interrupt program starts at x0---
-
-    wire [31:0] interrupt_is, im_dout;
+    wire [31:0] interrupt_dout, im_dout;
     wire [31:0] interrupt_debug_dout, im_debug_dout;
-    wire [31:0] im_din, im_debug_addr;
+    wire [11:0] im_addr, im_debug_addr;
+    wire [9:0] interrupt_addr, interrupt_debug_addr;
 
-    wire imu_dout_mux_sel;
-
-    assign im_din = (imu_addr - 16'h3000) >> 2;
-    assign im_debug_addr = debug_addr;
-
-    assign imu_dout_mux_sel = (imu_addr[15:12] == 4'h0) ? 1'b1 : 1'b0;
+    assign im_addr = (imu_addr - 16'h3000) >> 2;
+    assign im_debug_addr = debug_addr[11:0];
+    assign interrupt_addr = (imu_addr - 16'hF000) >> 2;
+    assign interrupt_debug_addr = debug_addr[9:0];
 
     Instruction_MEM im (
         .clk(clk),
-        .add_1(im_din),
+        .add_1(im_addr),
         .data_1(32'b0),
         .we_1(1'b0),
         .radd_2(im_debug_addr),
         .out_1(im_dout), 
-        .out_2(user_debug_dout)
+        .out_2(im_debug_dout)
     );
 
-    MUX2 #(32) debug_dout_mux(
-        .data1(im_debug_dout),
-        .data2(32'b0),
-        .sel(1'b0),
-        .out(debug_dout)
+    interrupt ipt_mem (
+        .a(interrupt_addr),        // input wire [9 : 0] a
+        .d(32'b0),        // input wire [31 : 0] d
+        .dpra(interrupt_debug_addr),  // input wire [9 : 0] dpra
+        .clk(clk),    // input wire clk
+        .we(1'b0),      // input wire we
+        .spo(interrupt_dout),    // output wire [31 : 0] spo
+        .dpo(interrupt_debug_dout)    // output wire [31 : 0] dpo
     );
 
-    MUX2 #(32) imu_dout_mux(
-        .data1(im_dout),
-        .data2(interrupt_is),
-        .sel(imu_dout_mux_sel),
-        .out(imu_dout)
-    );
+// User program: From 0x3000 - 0x4FFC (2048 x 32bit)
+//             00 1100 0000 0000 00 -> 0000 0000 0000
+//             01 0011 1111 1111 00 -> 0111 1111 1111
+
+// Interrupt program: From 0xF000 - 0xFEFC (960 x 32bit)
+//             11 11 00 0000 0000 00 -> 00 0000 0000
+//             11 11 11 1011 1111 00 -> 11 1011 1111
+
+
+    always @(*) begin
+        imu_dout = 32'b0;
+
+        if (imu_addr >= 32'h3000 && imu_addr < 32'h4FFC) begin
+            // user program
+            imu_dout = im_dout;
+        end
+        else if (imu_addr >= 32'hF000 && imu_addr < 32'hFF00) begin
+            // interrupt program
+            imu_dout = interrupt_dout;
+        end
+    end
+
+    always @(*) begin
+        debug_dout = 32'b0;
+
+        if (debug_addr[19:16] == 4'h2) begin
+            debug_dout = im_debug_dout;
+        end
+
+        else if (debug_addr[19:16] == 4'h3) begin
+            debug_dout = interrupt_debug_dout;
+        end
+            
+    end
+
+
+    always @(*) begin
+        imu_error = 1'b0;
+        if (imu_addr < 32'h3000 || imu_addr > 32'h4FFC && imu_addr < 32'HF000 || imu_addr > 32'HFEFC) begin
+            imu_error = 1'b1;
+        end
+    end
 endmodule

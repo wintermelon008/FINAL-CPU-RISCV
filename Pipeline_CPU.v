@@ -22,8 +22,8 @@
 /*
     ================================  Pipeline_CPU module   ================================
     Author:         Wintermelon
-    Version:        1.1.3
-    Last Edit:      2022.5.7
+    Version:        1.1.5
+    Last Edit:      2022.5.9
 
     This is the cpu topmodule for Pipeline
 
@@ -49,6 +49,10 @@
         * DEBUG
 */
 
+// ### Version 1.1.5 update ###
+// Change the CPU memory structure
+// Add the user stack, interrupt program memory
+
 // ### Version 1.1.2 update ###
 // Bugs fixed: MDU mux_sel delay
 
@@ -62,6 +66,26 @@
 // Add multiplier for datapath
 // Change the data width
 // Change some pins
+
+/* ============================================ CPU Memory List ============================================
+    User data: From 0x0000 - 0x2BFC (2816 x 32bit) 
+                00 0000 0000 0000 00 -> 0000 0000 0000
+                00 1010 1111 1111 00 -> 1010 1111 1111
+
+    User stack: From 0x2C00 - 0x2FFC (256 x 32bit)
+                0010 11 0000 0000 00 -> 0000 0000
+                0010 11 1111 1111 00 -> 1111 1111
+    
+    User program: From 0x3000 - 0x4FFC (2048 x 32bit)
+                00 1100 0000 0000 00 -> 0000 0000 0000
+                01 0011 1111 1111 00 -> 0111 1111 1111
+
+    Interrupt program: From 0xF000 - 0xFEFC (960 x 32bit)
+                11 11 00 0000 0000 00 -> 00 0000 0000
+                11 11 11 1011 1111 00 -> 11 1011 1111
+
+    I/O devices: From 0xFF00 - 0xFFFC
+*/
 
 module Pipeline_CPU(
     // cpu control form PDU
@@ -167,9 +191,9 @@ wire if_id_wen, id_ex_wen, ex_mem_wen, mem_wb_wen;
 wire if_id_clear, id_ex_clear, ex_mem_clear, mem_wb_clear;
 
 // Debug data lines
-wire [11:0] imu_debug_addr;
+wire [19:0] imu_debug_addr;
 wire [31:0] imu_debug_dout;
-wire [15:0] dmu_debug_addr;
+wire [19:0] dmu_debug_addr;
 wire [31:0] dmu_debug_dout;
 wire [4:0] rfi_debug_add;
 wire [31:0] rfi_debug_data;

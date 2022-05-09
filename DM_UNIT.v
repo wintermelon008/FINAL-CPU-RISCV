@@ -49,15 +49,15 @@ module DM_UNIT(
     input [31:0] io_din,	// I/O data input
 
 // DEBUG
-    input [31:0] debug_addr,
-    output [31:0] debug_dout
+    input [19:0] debug_addr,
+    output [31:0] debug_dout,
+
+    output dmu_error
 );
 
 wire [31:0] dm_din, dm_dout;
-wire [11:0] dm_addr;
+wire [15:0] dm_addr;
 wire dm_wen;
-wire [31:0] dm_debug_addr, dm_debug_dout;
-
 wire dmu_dout_mux_sel;
 
 
@@ -66,9 +66,8 @@ assign io_rd = rd;
 assign io_addr = dmu_addr;
 assign io_dout = dmu_din;
 assign dm_wen = we;
-assign dm_addr = dmu_addr[11:0];
+assign dm_addr = dmu_addr;
 assign dm_din = dmu_din;
-assign dm_debug_addr = debug_addr;
 
 assign dmu_dout_mux_sel = (dmu_addr[15:8] == 8'hFF) ? 1'b1 : 1'b0;
 
@@ -78,16 +77,10 @@ Data_MEM dm (
     .add_1(dm_addr),
     .data_1(dm_din),
     .we_1(dm_wen),
-    .radd_2(dm_debug_addr),
+    .radd_2(debug_addr),
     .out_1(dm_dout), 
-    .out_2(dm_debug_dout)
-);
-
-MUX2 #(32) debug_dout_mux(
-    .data1(dm_debug_dout),
-    .data2(32'b0),
-    .sel(1'b0),
-    .out(debug_dout)
+    .out_2(debug_dout),
+    .dm_error(dmu_error)
 );
 
 MUX2 #(32) dmu_dout_mux(

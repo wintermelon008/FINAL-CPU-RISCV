@@ -8,7 +8,7 @@
 */
 module DEBUG(
     // Debug_BUS
-    input [15:0] chk_addr,	        // debug address
+    input [31:0] chk_addr,	        // debug address
     output reg [31:0] chk_data,     // debug data
     output reg [31:0] chk_pc, 	    // current pc
 
@@ -100,11 +100,11 @@ module DEBUG(
     input [31:0] rf_debug_data,
 
     // IMU data
-    output reg [15:0] imu_debug_addr,
+    output reg [19:0] imu_debug_addr,
     input [31:0] imu_debug_data,
 
     // DMU data
-    output reg [15:0] dmu_debug_addr,
+    output reg [19:0] dmu_debug_addr,
     input [31:0] dmu_debug_data
 );
 /*
@@ -115,13 +115,13 @@ module DEBUG(
 always @(*) begin
     chk_pc = wb_pc;
     rf_debug_addr = chk_addr[4:0];
-    imu_debug_addr = chk_addr[11:0];
-    dmu_debug_addr = chk_addr[11:0];
+    imu_debug_addr = chk_addr[19:0];
+    dmu_debug_addr = chk_addr[19:0];
 end
 
 always @(*) begin
 
-    case (chk_addr[15:12]) 
+    case (chk_addr[19:16]) 
         4'h0: begin
             case (chk_addr[11:0])
 //================================== IF PART ==================================
@@ -212,10 +212,16 @@ always @(*) begin
         4'h1: begin
             chk_data = rf_debug_data;
         end
-        4'h2: begin
+        4'h2: begin // User program memory
             chk_data = imu_debug_data;
         end
-        4'h3: begin
+        4'h3: begin // Interrupt solve program memory
+            chk_data = imu_debug_data;
+        end
+        4'h4: begin // User data memory
+            chk_data = dmu_debug_data;
+        end
+        4'h5: begin // User stack
             chk_data = dmu_debug_data;
         end
         default: chk_data = 32'h0;
