@@ -36,7 +36,7 @@
         
         *SR1: the source number A
         *SR2: the source number B
-        *SR3: the source number C (float only)
+        *CSR: the CSR from ID
         *DR: the dr
 
         *ALU-EX: the alu answer from EX
@@ -59,6 +59,7 @@ module ID_EX_REG(
     input [31:0] imm_din,
     input [31:0] sr1_din,
     input [31:0] sr2_din,
+    input [31:0] csr_din,
     input [31:0] dr_din,
     input [15:0] ctrl_ex_din,
     input [7:0] ctrl_mem_din,
@@ -74,6 +75,7 @@ module ID_EX_REG(
     output [31:0] imm_dout,
     output [31:0] sr1_dout,
     output [31:0] sr2_dout,
+    output [31:0] csr_dout,
     output [31:0] dr_dout,
     output [15:0] ctrl_ex_dout,
     output [7:0] ctrl_mem_dout,
@@ -149,6 +151,14 @@ REG #(32) id_ex_sr1(
 REG #(32) id_ex_sr2(
     .din(sr2_din & ({32{~clear}})),
     .dout(sr2_dout),
+    .clk(clk),
+    .rstn(rstn),
+    .wen(one)
+);
+
+REG #(32) id_ex_csr(
+    .din(csr_din & ({32{~clear}})),
+    .dout(csr_dout),
     .clk(clk),
     .rstn(rstn),
     .wen(one)

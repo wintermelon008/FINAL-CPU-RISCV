@@ -57,13 +57,15 @@ wire [31:0] pc;
 wire [15:0] chk_addr;
 wire [31:0] chk_data;
 
-wire cpu_clk;
-wire rst_cpu;
+wire pdu_run;
+wire cpu_stop;
+wire pdu_rstn;
+wire [31:0] pdu_breakpoint;
 
 // PDU
 PDU_v2 pdu(
     .clk(clk),	//clk100mhz
-    .rstn(rstn),	//cpu_resetn
+    .rstn(rstn),
 
     .butu(butu),        //btnu
     .butd(butd),	    //btnd
@@ -72,13 +74,17 @@ PDU_v2 pdu(
     .butl(butl),	        //btnl
     .sw(sw),	        //sw15-0
 
-    .cpu_stop(led16r), 		//led16r
+    .stop(led16r), 		//led16r
     .led(led),	        //led15-0
     .an(an),		    //an7-0
     .seg(seg),		    //ca-cg 
     .seg_sel(led17), 	//led17
-    .clk_cpu(cpu_clk),
-    .rstn_cpu(rst_cpu),
+
+    // CTRL_BUS
+    .pdu_rstn(pdu_rstn),
+    .pdu_breakpoint(pdu_breakpoint),      
+    .pdu_run(pdu_run),           
+    .cpu_stop(cpu_stop),           
 
     //IO_BUS
     .io_addr(io_addr),
@@ -97,7 +103,13 @@ PDU_v2 pdu(
 Pipeline_CPU cpu(
     // cpu control form PDU
     .sys_clk(cpu_clk), 
-    .rstn(one),
+    .rstn(1'b1),
+
+    // CTRL_BUS
+    .pdu_rstn(pdu_rstn),
+    .pdu_breakpoint(pdu_breakpoint),      
+    .pdu_run(pdu_run),           
+    .cpu_stop(cpu_stop),    
 
     // IO_BUS
     .io_addr(io_addr),	// I/O address
@@ -107,7 +119,7 @@ Pipeline_CPU cpu(
     .io_din(io_din),	// I/O data input
 
     // Debug_BUS
-    .chk_pc(pc), 	// Current pc
+    .chk_pc(pc), 	// Current pc 
     .chk_addr(chk_addr),	// Debug address
     .chk_data(chk_data)  // Debug data
 );

@@ -40,7 +40,7 @@ module Control#(
 reg [2:0] rs2_mux_sel_ctrl, rs1_mux_sel_ctrl;
 reg [2:0] rf_wb_mux_sel;
 reg rf_sr1_mux_sel, rf_sr2_mux_sel;
-reg rfi_we, rff_we, dm_we, dm_rd;
+reg rfi_we, rff_we, dm_we, dm_rd, csr_we;
 reg [3:0] jump_ctrl;
 reg [7:0] ccu_mode;
 reg [2:0] dmu_mode;
@@ -164,6 +164,9 @@ reg ebreak;
         control_signals[27] - dm_we (1)
         control_signals[28] - dmu_rd (1)
 
+    CSR write enable
+        control_signals[29] = csr_wen (1)
+
     B & J control signal:
         control_signals[33:30] - jump_ctrl (4)
 
@@ -211,6 +214,7 @@ always @(instruction) begin
     ccu_ans_mux_sel = 1'b0;
     dmu_mode = BY_WORD;
     ebreak = 1'b0;
+    csr_we = 1'b0;
 
     case (instruction[6:0])     // Check the opcode
         
@@ -612,7 +616,7 @@ always @(instruction) begin
         end
 
         Loadupperimm: begin  // lui     
-            rs1_mux_sel_ctrl = 3'b010;
+            rs1_mux_sel_ctrl = 3'b011;
             rs2_mux_sel_ctrl = 3'b001;
             rf_wb_mux_sel = 3'b000;
             rfi_we = 1'b1;
@@ -623,18 +627,65 @@ always @(instruction) begin
         end
 
         ControlStatus: begin
+            csr_we = 1'b1;
+            rs1_mux_sel_ctrl = 3'b000;
+            rs2_mux_sel_ctrl = 3'b000;
+            rf_wb_mux_sel = 3'b011;
+            ccu_mode = ADD;
+            rfi_we = 1'b1;
+            dm_we = 1'b0;
+            dm_rd = 1'b0;
+            jump_ctrl = NPC;   
+
             if (instruction[31:20] == 12'b1 && instruction[19:7] == 13'b0) begin
                 // Ebreak
                 ebreak = 1'b1;
             end
-            rs1_mux_sel_ctrl = 3'b000;
-            rs2_mux_sel_ctrl = 3'b000;
-            rf_wb_mux_sel = 3'b010;
-            rfi_we = 1'b0;
-            dm_we = 1'b0;
-            dm_rd = 1'b0;
-            jump_ctrl = NPC;
-            ccu_mode = ADD;
+            else begin
+                case(instruction[14:12])
+                    3'b001: begin
+                        // csrrw
+                        rs1_mux_sel_ctrl = 3'b000;
+                        rs2_mux_sel_ctrl = 3'b011;
+                    end
+
+                    3'b010: begin
+                        // csrrs
+                        rs1_mux_sel_ctrl = 3'b000;
+                        rs2_mux_sel_ctrl = 3'b010;
+                        ccu_mode = OR;
+                    end
+
+                    3'b011: begin
+                        // csrrc
+                        rs1_mux_sel_ctrl = 3'b000;
+                        rs2_mux_sel_ctrl = 3'b010;
+                        ccu_mode = AND;
+                    end
+
+                    3'b101: begin
+                        // csrrwi
+                        rs1_mux_sel_ctrl = 3'b011;
+                        rs2_mux_sel_ctrl = 3'b001;
+                    end
+
+                    3'b110: begin
+                        // csrrsi
+                        rs1_mux_sel_ctrl = 3'b010;
+                        rs2_mux_sel_ctrl = 3'b001;
+                        ccu_mode = OR;
+                    end
+
+                    3'b111: begin
+                        // csrrci
+                        rs1_mux_sel_ctrl = 3'b010;
+                        rs2_mux_sel_ctrl = 3'b001;
+                        ccu_mode = AND;
+                    end
+
+                endcase
+            end    
+                
         end
 
         7'b0000000: begin   //not an is
@@ -649,8 +700,8 @@ always @(instruction) begin
         end
 
         default: begin  // all the signals are zero
-            rs1_mux_sel_ctrl = 2'b00;
-            rs2_mux_sel_ctrl = 2'b00;
+            rs1_mux_sel_ctrl = 3'b011;
+            rs2_mux_sel_ctrl = 3'b011;
             rf_wb_mux_sel = 3'b000;
             rfi_we = 1'b0;
             dm_we = 1'b0;

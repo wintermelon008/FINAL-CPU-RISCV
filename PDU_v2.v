@@ -44,6 +44,7 @@
 // Change the debug function.
 // Now The program will stop at breakpoint.
 
+// TODO: pdu_breakpoint
 
 module PDU_v2(
     input clk,            //clk100mhz
@@ -56,7 +57,7 @@ module PDU_v2(
     input butl,            //butl
     input [15:0] sw,      //sw15-0
 
-    output reg cpu_stop,            //led16r
+    output reg stop,            //led16r
     output [15:0] led,              //led15-0
     output [7:0] an,                //an7-0
     output [6:0] seg,               //ca-cg 
@@ -65,10 +66,11 @@ module PDU_v2(
     // CTRL_BUS
     // cpu control form PDU
     output pdu_rstn,
-    output reg pdu_breakpoint,      // When 1, the PC is at breakpoint
+    output [31:0] pdu_breakpoint,      
+    output reg pdu_run,             // PDU's signal to enable CPU clock
 
     // cpu signials to PDU
-    input cpu_stop,
+    input cpu_stop,           // CPU's signal when CPU clock stops
 
     //IO_BUS
     input [15:0] io_addr,
@@ -105,7 +107,6 @@ wire chk_l;            //butl
 // Registers
 reg breakpoint_address_reg_en;
 reg check_address_reg_en;
-wire [31:0] breakpoint_address;
 wire [31:0] breakpoint_address_reg_din;
 
 
@@ -286,7 +287,7 @@ REG #(32) breakpoint_address_reg(
     .clk(clk),
     .rstn(rstn),
     .wen(breakpoint_address_reg_en),
-    .dout(breakpoint_address)
+    .dout(pdu_breakpoint)
 );
 
 /*
@@ -331,7 +332,6 @@ end
 
 // part2
 always @(*) begin
-    pdu_breakpoint = 1'b0;
     case(current_state)
         Reset: next_state = Stop;
         Stop: begin
@@ -348,15 +348,11 @@ always @(*) begin
         RUN_CPU_ready: next_state = RUN_CPU;
 
         RUN_CPU: begin
-            if (cpu_error)
+            if (cpu_stop)
                 next_state = STOP;
             else if (io_addr == 16'hFF10 && io_rd) 
             // cpu reads sw_available
                 next_state = Run_UserInput_ready;
-            else if (current_pc == breakpoint_address) begin
-                next_state = Stop;
-                pdu_breakpoint = 1'b1;
-            end
             else
                 next_state = RUN_CPU;
         end
@@ -364,15 +360,11 @@ always @(*) begin
         Run_UserInput_ready: next_state = Run_UserInput;
 
         Run_UserInput: begin
-            if (cpu_error)
+            if (cpu_stop)
                 next_state = STOP;            
             else if (data) begin
                 next_state = RUN_CPU;
             end             
-            else if (current_pc == breakpoint_address) begin
-                next_state = Stop;
-                pdu_breakpoint = 1'b1;
-            end
             else
                 next_state = Run_UserInput;
         end
@@ -408,13 +400,14 @@ end
 
 // part3
 always @(posedge clk or negedge rstn) begin
+    // The PDU signals
     if (~rstn) begin
         cpu_clk_enable <= 1'b0;
         datamove_en <= 1'b0;
         check_address_reg_en <= 1'b0;
         segment_data_mux_sel <= 2'b11;
         led_data_mux_sel <= 2'b11;
-        cpu_stop <= 1'b0;
+        stop <= 1'b1;
         seg_sel <= 3'b000;
         chk_mux_sel <= 2'b00;
         breakpoint_address_reg_en <= 1'b0;
@@ -427,7 +420,7 @@ always @(posedge clk or negedge rstn) begin
                 check_address_reg_en <= 1'b0;
                 segment_data_mux_sel <= 2'b00;
                 led_data_mux_sel <= 2'b11;
-                cpu_stop <= 1'b1;
+                stop <= 1'b1;
                 seg_sel <= 3'b010;
                 chk_mux_sel <= 2'b00;
                 breakpoint_address_reg_en <= 1'b0;
@@ -439,7 +432,7 @@ always @(posedge clk or negedge rstn) begin
                 check_address_reg_en <= 1'b0;
                 segment_data_mux_sel <= 2'b10;
                 led_data_mux_sel <= 2'b01;
-                cpu_stop <= 1'b1;
+                stop <= 1'b1;
                 seg_sel <= 3'b100;
                 chk_mux_sel <= 2'b11;
                 breakpoint_address_reg_en <= 1'b0;
@@ -451,7 +444,7 @@ always @(posedge clk or negedge rstn) begin
                 check_address_reg_en <= 1'b1;
                 segment_data_mux_sel <= 2'b10;
                 led_data_mux_sel <= 2'b01;
-                cpu_stop <= 1'b1;
+                stop <= 1'b1;
                 seg_sel <= 3'b100;
                 chk_mux_sel <= 2'b11;
                 breakpoint_address_reg_en <= 1'b0;
@@ -463,7 +456,7 @@ always @(posedge clk or negedge rstn) begin
                 check_address_reg_en <= 1'b0;
                 segment_data_mux_sel <= 2'b10;
                 led_data_mux_sel <= 2'b01;
-                cpu_stop <= 1'b1;
+                stop <= 1'b1;
                 seg_sel <= 3'b100;
                 chk_mux_sel <= 2'b01;
                 breakpoint_address_reg_en <= 1'b0;
@@ -475,7 +468,7 @@ always @(posedge clk or negedge rstn) begin
                 check_address_reg_en <= 1'b1;
                 segment_data_mux_sel <= 2'b10;
                 led_data_mux_sel <= 2'b01;
-                cpu_stop <= 1'b1;
+                stop <= 1'b1;
                 seg_sel <= 3'b100;
                 chk_mux_sel <= 2'b01;
                 breakpoint_address_reg_en <= 1'b0;
@@ -487,7 +480,7 @@ always @(posedge clk or negedge rstn) begin
                 check_address_reg_en <= 1'b0;
                 segment_data_mux_sel <= 2'b10;
                 led_data_mux_sel <= 2'b01;
-                cpu_stop <= 1'b1;
+                stop <= 1'b1;
                 seg_sel <= 3'b100;
                 chk_mux_sel <= 2'b00;
                 breakpoint_address_reg_en <= 1'b0;
@@ -499,7 +492,7 @@ always @(posedge clk or negedge rstn) begin
                 check_address_reg_en <= 1'b1;
                 segment_data_mux_sel <= 2'b10;
                 led_data_mux_sel <= 2'b01;
-                cpu_stop <= 1'b1;
+                stop <= 1'b1;
                 seg_sel <= 3'b100;
                 chk_mux_sel <= 2'b00;
                 breakpoint_address_reg_en <= 1'b0;
@@ -511,7 +504,7 @@ always @(posedge clk or negedge rstn) begin
                 check_address_reg_en <= 1'b0;
                 segment_data_mux_sel <= 2'b01;
                 led_data_mux_sel <= 2'b00;
-                cpu_stop <= 1'b0;
+                stop <= 1'b0;
                 seg_sel <= 3'b001;
                 chk_mux_sel <= 2'b10;
                 breakpoint_address_reg_en <= 1'b1;
@@ -523,7 +516,7 @@ always @(posedge clk or negedge rstn) begin
                 check_address_reg_en <= 1'b0;
                 segment_data_mux_sel <= 2'b01;
                 led_data_mux_sel <= 2'b00;
-                cpu_stop <= 1'b0;
+                stop <= 1'b0;
                 seg_sel <= 3'b001;
                 chk_mux_sel <= 2'b10;
                 breakpoint_address_reg_en <= 1'b0;
@@ -535,7 +528,7 @@ always @(posedge clk or negedge rstn) begin
                 check_address_reg_en <= 1'b0;
                 segment_data_mux_sel <= 2'b00;
                 led_data_mux_sel <= 2'b10;
-                cpu_stop <= 1'b0;
+                stop <= 1'b0;
                 seg_sel <= 3'b011;
                 chk_mux_sel <= 2'b10;
                 breakpoint_address_reg_en <= 1'b0;
@@ -547,7 +540,7 @@ always @(posedge clk or negedge rstn) begin
                 check_address_reg_en <= 1'b0;
                 segment_data_mux_sel <= 2'b00;
                 led_data_mux_sel <= 2'b10;
-                cpu_stop <= 1'b0;
+                stop <= 1'b0;
                 seg_sel <= 3'b011;
                 chk_mux_sel <= 2'b10;
                 breakpoint_address_reg_en <= 1'b0;
@@ -559,7 +552,7 @@ always @(posedge clk or negedge rstn) begin
                 check_address_reg_en <= 1'b0;
                 segment_data_mux_sel <= 2'b11;
                 led_data_mux_sel <= 2'b11;
-                cpu_stop <= 1'b1;
+                stop <= 1'b1;
                 seg_sel <= 3'b000;
                 chk_mux_sel <= 2'b00;
                 breakpoint_address_reg_en <= 1'b0;
@@ -583,31 +576,7 @@ always @(posedge clk or negedge rstn) begin
 end
 
 
-// CPU clock control
-localparam CPU_CLK_N = 11'd5;
-//localparam CPU_CLK_N = 11'd25000000;
-always @(posedge clk or negedge rstn) begin
-    if (~rstn) begin
-        cpu_clk_conter <= 0;
-        pdu_clk <= 0;
-    end
-    else begin
-        if (cpu_clk_enable || cpu_clk_conter != 0) begin    
-            if (cpu_clk_conter == CPU_CLK_N + CPU_CLK_N) begin
-                cpu_clk_conter <= 'h0;
-                pdu_clk <= 0;
-            end
-            else begin               
-                if (cpu_clk_conter < CPU_CLK_N)
-                    pdu_clk <= 1;
-                else 
-                    pdu_clk <= 0;
-                cpu_clk_conter <= cpu_clk_conter + 'h1;
-            end
-        end
-       
-    end
-end
+
 
 
 endmodule

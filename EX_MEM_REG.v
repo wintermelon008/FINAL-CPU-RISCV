@@ -56,7 +56,9 @@ module EX_MEM_REG(
     input [31:0] alu_ans_din,
     input [31:0] dm_addr_din,
     input [31:0] dm_data_din,
+    input [31:0] csr_din,
     input [31:0] dr_din,
+
 
     output [31:0] is_dout,
     output [31:0] pc_dout,
@@ -65,6 +67,7 @@ module EX_MEM_REG(
     output [31:0] alu_ans_dout,
     output [31:0] dm_addr_dout,
     output [31:0] dm_data_dout,
+    output [31:0] csr_dout,
     output [31:0] dr_dout
 
 );
@@ -133,6 +136,14 @@ REG #(32) ex_mem_alu_ans(
 REG #(32) ex_mem_dr(
     .din(dr_din & ({32{~clear}})),
     .dout(dr_dout),
+    .clk(clk),
+    .rstn(rstn),
+    .wen(one)
+);
+
+REG #(32) ex_mem_csr(
+    .din(csr_din & ({32{~clear}})),
+    .dout(csr_dout),
     .clk(clk),
     .rstn(rstn),
     .wen(one)

@@ -23,13 +23,16 @@
     Author:         Wintermelon
     Last Edit:      2022.5.9
     This is CSR unit module
-    With the CSRs below:
+
+    With the original CSRs below:
         mtevc (Machine Trp-Vecor Base-Address Register)     address 0x305
         mcause (Machine CauseRegister)                      address 0x342
         mepc (Machine Exception Program Counter)            address 0x341
         mtval (Machine Trap Value Resiste)                  address 0x343
 
-    This module will decode the @csr_address and save/load the register.
+    With new designed CSRs below:
+        mipd (Machine Interrupt Program Done)               address 0x100
+
 */
 
 
@@ -43,13 +46,25 @@
      
 
 module CSR_UNIT(
-    input [31:0] csr_address,
-    input [31:0] csr_din,
     input csr_we,
     input csr_clk,
     input rstn,
 
-    output reg [31:0] csr_dout,
+    // CSRs
+    input [31:0] mtevc_din,
+    output [31:0] mtevc_dout,
+
+    input [31:0] mcause_din,
+    output [31:0] mcause_dout,
+
+    input [31:0] mepc_din,
+    output [31:0] mepc_dout,
+
+    input [31:0] mtval_din,
+    output [31:0] mtval_dout,
+
+    input [31:0] mipd_din,
+    output [31:0] mipd_dout,
 
     input [31:0] csr_debug_addr,
     output reg [31:0] csr_debug_dout
@@ -59,9 +74,8 @@ module CSR_UNIT(
 // mtevc (Machine Trp-Vecor Base-Address Register)     address 0x305
 // This CSR will give the Interrupt solve program's base address.
 wire mtevc_we;
-wire [31:0] mtevc_din, mtevc_dout;
 
-assign mtevc_we = (csr_address == 32'h305 && csr_we == 1'b1) ? 1'b1 : 1'b0; 
+assign mtevc_we = csr_we;
 REG #(32) Mtevc (
     .din(mtevc_din),
     .dout(mtevc_dout),
@@ -74,9 +88,8 @@ REG #(32) Mtevc (
 // mcause (Machine CauseRegister)                      address 0x342
 // This CSR will save the reason for interrupt.
 wire mcause_we;
-wire [31:0] mcause_din, mcause_dout;
 
-assign mcause_we = (csr_address == 32'h342 && csr_we == 1'b1) ? 1'b1 : 1'b0; 
+assign mcause_we = csr_we;
 REG #(32) Mcause (
     .din(mcause_din),
     .dout(mcause_dout),
@@ -90,9 +103,8 @@ REG #(32) Mcause (
 // mepc (Machine Exception Program Counter)            address 0x341
 // This CSR will save the return PC after sloveing the interrupt.
 wire mepc_we;
-wire [31:0] mepc_din, mepc_dout;
 
-assign mepc_we = (csr_address == 32'h342 && csr_we == 1'b1) ? 1'b1 : 1'b0; 
+assign mepc_we = csr_we;
 REG #(32) Mepc (
     .din(mepc_din),
     .dout(mepc_dout),
@@ -105,9 +117,8 @@ REG #(32) Mepc (
 // mtval (Machine Trap Value Resiste)                  address 0x343
 // This CSR will save the interrupt infomation.
 wire mtval_we;
-wire [31:0] mtval_din, mtval_dout;
 
-assign mtval_we = (csr_address == 32'h342 && csr_we == 1'b1) ? 1'b1 : 1'b0; 
+assign mtval_we = csr_we;
 REG #(32) Mtval (
     .din(mtval_din),
     .dout(mtval_dout),
@@ -117,24 +128,29 @@ REG #(32) Mtval (
     .wen(mtval_we)
 );
 
+// mipd (Machine Interrupt Program Done)               address 0x100
+// This CSR will save the interrupt program done flag
+wire mipd_we;
+
+assign mipd_we = csr_we;
+REG #(32) Mipd (
+    .din(mipd_din),
+    .dout(mipd_dout),
+
+    .clk(csr_clk),
+    .rstn(rstn),
+    .wen(mipd_we)
+);
+
 
 /*
     mtevc (Machine Trp-Vecor Base-Address Register)     address 0x305
     mcause (Machine CauseRegister)                      address 0x342
     mepc (Machine Exception Program Counter)            address 0x341
     mtval (Machine Trap Value Resiste)                  address 0x343
-*/
 
-always @(*) begin
-    case (csr_address) 
-        32'h305: csr_dout = mtevc_dout;
-        32'h342: csr_dout = mcause_dout;
-        32'h341: csr_dout = mepc_dout;
-        32'h343: csr_dout = mtval_dout;
-        
-        default: csr_dout = 32'h0;
-    endcase
-end
+    mipd (Machine Interrupt Program Done)               address 0x100
+*/
 
 
 always @(*) begin
@@ -143,6 +159,7 @@ always @(*) begin
         32'h342: csr_debug_dout = mcause_dout;
         32'h341: csr_debug_dout = mepc_dout;
         32'h343: csr_debug_dout = mtval_dout;
+        32'h100: csr_debug_dout = mipd_dout;
         
         default: csr_debug_dout = 32'h0;
     endcase

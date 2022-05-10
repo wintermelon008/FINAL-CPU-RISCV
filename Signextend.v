@@ -38,15 +38,24 @@ module Signextend
 
 // Below is the instruction opcode list ================================================================================================
 
-    localparam ArithmeticR = 7'b0110011;
-    localparam ArithmeticI = 7'b0010011;
-    localparam Conditionjump = 7'b1100011;
-    localparam MemoryLoad = 7'b0000011;
-    localparam MemoryStore = 7'b0100011;
-    localparam JumpandlinkR = 7'b1100111;
-    localparam JumpandlinkI = 7'b1101111;
-    localparam Adduppertopc = 7'b0010111;
-    localparam Loadupperimm = 7'b0110111;
+    localparam ArithmeticR = 7'b0110011;        // RISCV 32IBM - Register
+    localparam ArithmeticI = 7'b0010011;        // RISCV 32IBM - Immediate
+    localparam ControlStatus = 7'b1110011;      // RISCV 32I - CSR
+    localparam Conditionjump = 7'b1100011;      // RISCV 32I - Branch-type
+    localparam MemoryLoad = 7'b0000011;         // RISCV 32I - Immediate(MEM)
+    localparam MemoryStore = 7'b0100011;        // RISCV 32I - Store-type
+    localparam JumpandlinkR = 7'b1100111;       // RISCV 32I - Jump-type(R)
+    localparam JumpandlinkI = 7'b1101111;       // RISCV 32I - Jump-type(I)
+    localparam Adduppertopc = 7'b0010111;       // RISCV 32I - Upper-type
+    localparam Loadupperimm = 7'b0110111;       // RISCV 32I - Upper-type
+
+    localparam FloatArithmetic = 7'b1010011;    // RISCV 32F - Arithmetic
+    localparam FloatMemoryLoad = 7'b0000111;    // RISCV 32F - Immediate(MEM)
+    localparam FloatMemoryStore = 7'b0100111;   // RISCV 32F - Store-type
+    localparam FloatMulAdd = 7'b1000011;        // RISCV 32F - R4-type
+    localparam FloatMulSub = 7'b1000111;        // RISCV 32F - R4-type
+    localparam FloatMulNegAdd = 7'b1001111;     // RISCV 32F - R4-type
+    localparam FloatMulNegSub = 7'b1001011;     // RISCV 32F - R4-type
     
 
 /*
@@ -176,6 +185,11 @@ always @(*) begin
         Loadupperimm: begin
             // lui
             imm = {{instruction[31:12]}, {12'b0}};
+        end
+
+        ControlStatus: begin
+            // csr
+            imm = {{27'b0}, {instruction[19:15]}};
         end
 
         default: begin
