@@ -32,7 +32,7 @@
 
         *Ctrl-WB: the control signals for WB (0000 + rfmux(3), rffwe(1))
         *Ctrl-MEM: the control signals for MEM (00 + dmu_mode(3) ccu_ans_mux(1) + dmwe(1), dmrd(1))
-        *Ctrl-EX: the control signals for EX (00 + sr1mux(3), sr2mux(3), alumode(8))
+        *Ctrl-EX: the control signals for EX (0 + ebreak(1) + sr1mux(3), sr2mux(3), alumode(8)
         
         *SR1: the source number A
         *SR2: the source number B

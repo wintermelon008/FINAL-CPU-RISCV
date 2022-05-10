@@ -113,7 +113,7 @@ module DEBUG(
 */
 
 always @(*) begin
-    chk_pc = wb_pc;
+    chk_pc = id_pc;
     rf_debug_addr = chk_addr[4:0];
     imu_debug_addr = chk_addr[19:0];
     dmu_debug_addr = chk_addr[19:0];

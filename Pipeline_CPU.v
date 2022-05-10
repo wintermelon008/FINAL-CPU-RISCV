@@ -22,8 +22,8 @@
 /*
     ================================  Pipeline_CPU module   ================================
     Author:         Wintermelon
-    Version:        1.1.6
-    Last Edit:      2022.5.9
+    Version:        1.1.7
+    Last Edit:      2022.5.10
 
     This is the cpu topmodule for Pipeline
 
@@ -49,8 +49,12 @@
         * DEBUG
 */
 
+// ### Version 1.1.7 update ###
+// Design the Interrupt work
+// Small changes to cpu clock 
+
 // ### Version 1.1.6 update ###
-// Add the lb, lbu, lh, lhu, sb, sh
+// Add the lb, lbu, lh, lhu, sb, sh 
 
 // ### Version 1.1.5 update ###
 // Change the CPU memory structure
@@ -91,9 +95,16 @@
 */
 
 module Pipeline_CPU(
-    // cpu control form PDU
-    input sys_clk, 
+    input clk,      // 100Mhz 
     input rstn,
+
+    // CTRL_BUS
+    // cpu control form PDU
+    input pdu_rstn,
+    input pdu_breakpoint,      // When 1, the PC is at breakpoint
+
+    // cpu signials to PDU
+    output cpu_stop,
 
     // IO_BUS
     output [15:0]  io_addr,	// I/O address
@@ -113,7 +124,7 @@ reg [31:0] zero;
 reg one;
 
 // Below is the wires and regs declaration ==========================================================================================
-wire clk;
+wire cpu_clk;
 
 // Memorys
 wire [15:0] imu_addr;
@@ -163,6 +174,7 @@ wire [34:0] control_signals;
 wire [3:0] jump_ctrl;
 wire [2:0] sr1_mux_sel_cu, sr2_mux_sel_cu;
 wire [2:0] ex_sr1_mux_sel_cu, ex_sr2_mux_sel_cu;
+wire ebreak;
 
 // CCU
 wire [31:0] ccu_fast_ans, ccu_slow_ans;
@@ -244,15 +256,18 @@ assign dmu_din = mem_dmu_data;
 
     B & J control signal:
         control_signals[33:30] - jump_ctrl (4)
+    
+    Interrupt signal:
+        control_signals[34] - ebreak (1)
 
 */ //===================================================================================================
-// CTRL-EX (00 + sr1mux(3), sr2mux(3), alumode(8))
+// CTRL-EX (0 + ebreak(1) + sr1mux(3), sr2mux(3), alumode(8))
 // CTRL-MEM (00 + dmu_mode(3) ccu_ans_mux(1) + dmwe(1), dmrd(1))
 // CTRL-WB (0000 + rfmux(3), rffwe(1))
 // MUX-SEL (0000000 + sr1(3), sr2(3), bsr1(3), bsr2(3), dsr2(3), npc(2))
 
 // Below is the control signals connection (ID)
-assign id_ctrl_ex = {{2'b0}, {control_signals[2:0]}, {control_signals[5:3]}, {control_signals[21:14]}};
+assign id_ctrl_ex = {{1'b0}, {control_signals[34]}, {control_signals[2:0]}, {control_signals[5:3]}, {control_signals[21:14]}};
 assign id_ctrl_mem = {{2'b0}, {control_signals[26:24]}, {control_signals[11]}, {control_signals[27]}, {control_signals[28]}};
 assign id_ctrl_wb = {{4'b0}, {control_signals[8:6]}, {control_signals[22]}};
 assign id_mux_sel = {{7'b0}, {sr1_mux_sel_fh}, {sr2_mux_sel_fh}, {b_sr1_mux_sel_fh}, {b_sr2_mux_sel_fh}, {dm_sr2_mux_sel_fh}, {npc_mux_sel}};
@@ -260,10 +275,11 @@ assign jump_ctrl = control_signals[33:30];
 assign id_rf_dr = {{27'b0}, {id_is[11:7]}};
 
 // Below is the control signals connection (EX)
-// CTRL-EX (00 + sr1mux(3), sr2mux(3), alumode(8))
+// CTRL-EX (0 + ebreak(1) + sr1mux(3), sr2mux(3), alumode(8)
 assign ex_sr1_mux_sel_cu = ctrl_ex_dout[13:11];
 assign ex_sr2_mux_sel_cu = ctrl_ex_dout[10:8];
 assign ccu_mode = ctrl_ex_dout[7:0];
+assign ebreak = ctrl_ex_dout[14];
 
 // Below is the control signals connection (MEM)
 // CTRL-MEM (00 + dmu_mode(3) + ccu_ans_mux(1) + dmwe(1), dmrd(1))
@@ -299,7 +315,7 @@ assign if_pc = pc_out;
 
 // Memorys
 IM_UNIT imu(
-    .clk(clk),
+    .clk(cpu_clk),
 // DATA
     .imu_addr(imu_addr),
     .imu_dout(imu_dout),
@@ -312,7 +328,7 @@ IM_UNIT imu(
 
 DM_UNIT dmu(
 // SIGNALS
-    .clk(clk),
+    .clk(cpu_clk),
     .rd(dmu_rd),   // read enable
     .we(dmu_we),   // write enable
     .mode(dmu_mode),
@@ -336,7 +352,7 @@ DM_UNIT dmu(
 
 // Reg file
 REG_FILE_I rfi (
-    .clk(clk),			           
+    .clk(cpu_clk),			           
     .ra0(rfi_sr1_add), 
     .ra1(rfi_sr2_add), 
     .ra2(rfi_debug_add),	
@@ -350,7 +366,7 @@ REG_FILE_I rfi (
 
 // PC register
 PC pc (
-    .clk(clk),
+    .clk(cpu_clk),
     .wen(pc_wen),
     .din(pc_in),
     .dout(pc_out)
@@ -359,7 +375,7 @@ PC pc (
 // Iter-segment Registers
 IF_ID_REG if_id_reg(
     // signals
-    .clk(clk),
+    .clk(cpu_clk),
     .rstn(rstn),
     .wen(if_id_wen),
     .clear(if_id_clear),
@@ -374,7 +390,7 @@ IF_ID_REG if_id_reg(
 
 ID_EX_REG id_ex_reg(
     // signals
-    .clk(clk),
+    .clk(cpu_clk),
     .rstn(rstn),
     .wen(id_ex_wen),
     .clear(id_ex_clear),   
@@ -413,7 +429,7 @@ ID_EX_REG id_ex_reg(
 
 EX_MEM_REG ex_mem_reg(
     // signals
-    .clk(clk),
+    .clk(cpu_clk),
     .rstn(rstn),
     .wen(ex_mem_wen),
     .clear(ex_mem_clear),
@@ -441,7 +457,7 @@ EX_MEM_REG ex_mem_reg(
 
 MEM_WB_REG mem_wb_reg(
     // signals
-    .clk(clk),
+    .clk(cpu_clk),
     .rstn(rstn),
     .wen(mem_wb_wen),
     .clear(mem_wb_clear),
@@ -494,7 +510,7 @@ Branch_CTRL bcu(
 // CCU
 
 CalculateUnit ccu(
-    .clk(clk),
+    .clk(cpu_clk),
 
     .number1(sr1_mux_out),
     .number2(sr2_mux_out),
@@ -507,7 +523,8 @@ CalculateUnit ccu(
 
 // PCU
 Pipline_CTRL pcu(
-    .clk(sys_clk),    // 100Mhz
+    .clk(clk),    // 100Mhz
+    .pdu_clk(pdu_clk)
     .rstn(rstn),
     .if_is(imu_dout), 
     .id_is(id_is), 
@@ -521,8 +538,10 @@ Pipline_CTRL pcu(
     .wb_pc(wb_pc),
     .ex_npc_mux_sel(ex_npc_mux_sel),
     .error(ccu_error),
+    .ebreak(ebreak),
+    .pdu_breakpoint(pdu_breakpoint),
 
-    .cpu_clk(clk),
+    .cpu_clk(cpu_clk),
     .if_id_wen(if_id_wen), 
     .id_ex_wen(id_ex_wen), 
     .ex_mem_wen(ex_mem_wen), 
@@ -536,7 +555,9 @@ Pipline_CTRL pcu(
     .b_sr2_mux_sel_fh(b_sr2_mux_sel_fh),
     .sr1_mux_sel_fh(sr1_mux_sel_fh),
     .sr2_mux_sel_fh(sr2_mux_sel_fh),
-    .dm_sr2_mux_sel_fh(dm_sr2_mux_sel_fh)
+    .dm_sr2_mux_sel_fh(dm_sr2_mux_sel_fh),
+
+    .cpu_stop(cpu_stop)
 );
 
 

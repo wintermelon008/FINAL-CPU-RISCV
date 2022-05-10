@@ -45,6 +45,7 @@ reg [3:0] jump_ctrl;
 reg [7:0] ccu_mode;
 reg [2:0] dmu_mode;
 reg ccu_ans_mux_sel;
+reg ebreak;
 
 // Below is the instruction opcode list ================================================================================================
 
@@ -166,6 +167,9 @@ reg ccu_ans_mux_sel;
     B & J control signal:
         control_signals[33:30] - jump_ctrl (4)
 
+    Interrupt signal:
+        control_signals[34] - ebreak (1)
+
 */ //===================================================================================================
 
 // Below is the DMU_mode list
@@ -192,6 +196,7 @@ reg ccu_ans_mux_sel;
     assign control_signals[28] = dm_rd;
 
     assign control_signals[33:30] = jump_ctrl;
+    assign control_signals[34] = ebreak;
 
 
 
@@ -205,6 +210,7 @@ always @(instruction) begin
     ccu_mode = ADD;
     ccu_ans_mux_sel = 1'b0;
     dmu_mode = BY_WORD;
+    ebreak = 1'b0;
 
     case (instruction[6:0])     // Check the opcode
         
@@ -552,7 +558,7 @@ always @(instruction) begin
                 
             endcase
             rs1_mux_sel_ctrl = 3'b000;
-            rs2_mux_sel_ctrl = 2'b001;
+            rs2_mux_sel_ctrl = 3'b001;
             rf_wb_mux_sel = 3'b010;
             rfi_we = 1'b1;
             dm_we = 1'b0;
@@ -610,6 +616,21 @@ always @(instruction) begin
             rs2_mux_sel_ctrl = 3'b001;
             rf_wb_mux_sel = 3'b000;
             rfi_we = 1'b1;
+            dm_we = 1'b0;
+            dm_rd = 1'b0;
+            jump_ctrl = NPC;
+            ccu_mode = ADD;
+        end
+
+        ControlStatus: begin
+            if (instruction[31:20] == 12'b1 && instruction[19:7] == 13'b0) begin
+                // Ebreak
+                ebreak = 1'b1;
+            end
+            rs1_mux_sel_ctrl = 3'b000;
+            rs2_mux_sel_ctrl = 3'b000;
+            rf_wb_mux_sel = 3'b010;
+            rfi_we = 1'b0;
             dm_we = 1'b0;
             dm_rd = 1'b0;
             jump_ctrl = NPC;

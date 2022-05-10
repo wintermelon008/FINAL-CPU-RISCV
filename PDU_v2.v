@@ -22,8 +22,8 @@
 /*
     ================================  PDU module   ================================
     Author:         Wintermelon
-    Version: 2.1.2
-    Last Edit:      2022.4.27
+    Version: 2.1.4
+    Last Edit:      2022.5.10
 
     This is the PDU top module
 
@@ -36,6 +36,9 @@
         * MUX4
         * REG
 */
+
+// ### Version 2.1.4 update ###
+// Change the structure to go with CPU
 
 // ### Version 2.1.2 update ###
 // Change the debug function.
@@ -59,8 +62,13 @@ module PDU_v2(
     output [6:0] seg,               //ca-cg 
     output reg [2:0] seg_sel,       //led17
 
-    output reg clk_cpu,             //cpu's clk
-    output rstn_cpu,                //cpu's rst
+    // CTRL_BUS
+    // cpu control form PDU
+    output pdu_rstn,
+    output reg pdu_breakpoint,      // When 1, the PC is at breakpoint
+
+    // cpu signials to PDU
+    input cpu_stop,
 
     //IO_BUS
     input [15:0] io_addr,
@@ -133,7 +141,7 @@ initial begin
     breakpoint_address_reg_en <= 1'b0;
     zero <= 32'h0;
 end
-assign rstn_cpu = rstn;
+assign pdu_rstn = rstn;
 assign breakpoint_address_reg_din = (datamove_dout == 32'h0) ? current_pc : datamove_dout;
 // DPE and DataMove
 // clock: system clock
@@ -323,6 +331,7 @@ end
 
 // part2
 always @(*) begin
+    pdu_breakpoint = 1'b0;
     case(current_state)
         Reset: next_state = Stop;
         Stop: begin
@@ -339,11 +348,15 @@ always @(*) begin
         RUN_CPU_ready: next_state = RUN_CPU;
 
         RUN_CPU: begin
-            if (io_addr == 16'hFF10 && io_rd) 
+            if (cpu_error)
+                next_state = STOP;
+            else if (io_addr == 16'hFF10 && io_rd) 
             // cpu reads sw_available
                 next_state = Run_UserInput_ready;
-            else if (current_pc == breakpoint_address)
+            else if (current_pc == breakpoint_address) begin
                 next_state = Stop;
+                pdu_breakpoint = 1'b1;
+            end
             else
                 next_state = RUN_CPU;
         end
@@ -351,11 +364,15 @@ always @(*) begin
         Run_UserInput_ready: next_state = Run_UserInput;
 
         Run_UserInput: begin
-            if (data) begin
+            if (cpu_error)
+                next_state = STOP;            
+            else if (data) begin
                 next_state = RUN_CPU;
             end             
-            else if (current_pc == breakpoint_address)
+            else if (current_pc == breakpoint_address) begin
                 next_state = Stop;
+                pdu_breakpoint = 1'b1;
+            end
             else
                 next_state = Run_UserInput;
         end
@@ -572,19 +589,19 @@ localparam CPU_CLK_N = 11'd5;
 always @(posedge clk or negedge rstn) begin
     if (~rstn) begin
         cpu_clk_conter <= 0;
-        clk_cpu <= 0;
+        pdu_clk <= 0;
     end
     else begin
         if (cpu_clk_enable || cpu_clk_conter != 0) begin    
             if (cpu_clk_conter == CPU_CLK_N + CPU_CLK_N) begin
                 cpu_clk_conter <= 'h0;
-                clk_cpu <= 0;
+                pdu_clk <= 0;
             end
             else begin               
                 if (cpu_clk_conter < CPU_CLK_N)
-                    clk_cpu <= 1;
+                    pdu_clk <= 1;
                 else 
-                    clk_cpu <= 0;
+                    pdu_clk <= 0;
                 cpu_clk_conter <= cpu_clk_conter + 'h1;
             end
         end

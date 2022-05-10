@@ -35,7 +35,7 @@
 
 /*  ========== CPU Interrupt table ==========
 
-    1. User Interrupt (We make it as breakpoint)
+    1. User Interrupt (We make it as the ebreak instruction)
     2. Divide by 0
     3. Memory access error
     ......
