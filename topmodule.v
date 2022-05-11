@@ -53,7 +53,7 @@ wire io_rd;
 wire [31:0] io_din;
 
 //Debug_BUS
-wire [31:0] pc;
+wire [31:0] if_pc, id_pc;
 wire [15:0] chk_addr;
 wire [31:0] chk_data;
 
@@ -94,7 +94,8 @@ PDU_v2 pdu(
     .io_din(io_din),	
 
     //Debug_BUS
-    .current_pc(pc), 	    
+    .chk_if_pc(if_pc), 	
+    .chk_id_pc(id_pc), 	    
     .chk_addr(chk_addr),	
     .chk_data(chk_data)    
 );
@@ -102,7 +103,7 @@ PDU_v2 pdu(
 
 Pipeline_CPU cpu(
     // cpu control form PDU
-    .sys_clk(cpu_clk), 
+    .clk(clk), 
     .rstn(1'b1),
 
     // CTRL_BUS
@@ -119,7 +120,8 @@ Pipeline_CPU cpu(
     .io_din(io_din),	// I/O data input
 
     // Debug_BUS
-    .chk_pc(pc), 	// Current pc 
+    .chk_if_pc(if_pc), 	
+    .chk_id_pc(id_pc),
     .chk_addr(chk_addr),	// Debug address
     .chk_data(chk_data)  // Debug data
 );

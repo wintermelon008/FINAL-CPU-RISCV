@@ -80,7 +80,8 @@ module PDU_v2(
     output [31:0] io_din,       // The data sending into CPU
 
     //Debug_BUS
-    input [31:0] current_pc,
+    input [31:0] chk_if_pc, 	
+    input [31:0] chk_id_pc,
     output [15:0] chk_addr,
     input [31:0] chk_data
 );
@@ -143,7 +144,7 @@ initial begin
     zero <= 32'h0;
 end
 assign pdu_rstn = rstn;
-assign breakpoint_address_reg_din = (datamove_dout == 32'h0) ? current_pc : datamove_dout;
+assign breakpoint_address_reg_din = (datamove_dout == 32'h0) ? chk_if_pc : datamove_dout;
 // DPE and DataMove
 // clock: system clock
 
@@ -349,7 +350,7 @@ always @(*) begin
 
         RUN_CPU: begin
             if (cpu_stop)
-                next_state = STOP;
+                next_state = Stop;
             else if (io_addr == 16'hFF10 && io_rd) 
             // cpu reads sw_available
                 next_state = Run_UserInput_ready;
@@ -361,7 +362,7 @@ always @(*) begin
 
         Run_UserInput: begin
             if (cpu_stop)
-                next_state = STOP;            
+                next_state = Stop;            
             else if (data) begin
                 next_state = RUN_CPU;
             end             
@@ -401,6 +402,7 @@ end
 // part3
 always @(posedge clk or negedge rstn) begin
     // The PDU signals
+    pdu_run = 1'b0;
     if (~rstn) begin
         cpu_clk_enable <= 1'b0;
         datamove_en <= 1'b0;
@@ -511,6 +513,8 @@ always @(posedge clk or negedge rstn) begin
             end
 
             RUN_CPU: begin        
+                pdu_run = 1'b1;
+                
                 cpu_clk_enable <= 1'b1;
                 datamove_en <= 1'b0;
                 check_address_reg_en <= 1'b0;

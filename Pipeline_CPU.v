@@ -22,8 +22,8 @@
 /*
     ================================  Pipeline_CPU module   ================================
     Author:         Wintermelon
-    Version:        1.1.8
-    Last Edit:      2022.5.10
+    Version:        1.1.9
+    Last Edit:      2022.5.11
 
     This is the cpu topmodule for Pipeline
 
@@ -48,6 +48,11 @@
         * MUX8
         * DEBUG
 */
+
+// ### Version 1.1.9 update ###
+// Change the debug ways for PDU
+// Modify the error tag 
+// Changes to the PCU state machine
 
 // ### Version 1.1.8 update ###
 // Add the CSRs
@@ -119,7 +124,8 @@ module Pipeline_CPU(
     input [31:0] io_din,	// I/O data input
 
     // Debug_BUS
-    output [31:0] chk_pc, 	// Current pc
+    output [31:0] chk_if_pc, 	
+    output [31:0] chk_id_pc,
     input [15:0] chk_addr,	// Debug address
     output [31:0] chk_data  // Debug data
 );
@@ -191,6 +197,11 @@ wire [31:0] ccu_ans;
 // CSR
 wire [31:0] csr_radd, csr_wadd, csr_din, csr_dout;
 wire csr_wen;
+
+// ERROR
+wire [3:0] cpu_error;
+wire cu_error, imu_error, dmu_error;
+wire [3:0] ccu_error;
 
 // MUXs
 // npc-mux & rf(WB)-mux
@@ -327,7 +338,9 @@ assign dm_sr2_mux_sel = ex_dm_sr2_mux_sel_fh;
 
 assign if_pc = pc_out;
 
-
+// Below is the debug PC connection
+assign chk_if_pc = if_pc;
+assign chk_id_pc = id_pc;
 
 // Below is the sub-module declaration ==============================================================================================
 
@@ -340,7 +353,9 @@ IM_UNIT imu(
 
 // DEBUG
     .debug_addr(imu_debug_addr),
-    .debug_dout(imu_debug_dout)
+    .debug_dout(imu_debug_dout),
+
+    .imu_error(imu_error)
 );
 
 
@@ -365,7 +380,9 @@ DM_UNIT dmu(
 
 // DEBUG
     .debug_addr(dmu_debug_addr),
-    .debug_dout(dmu_debug_dout)
+    .debug_dout(dmu_debug_dout),
+
+    .dmu_error(dmu_error)
 );
 
 // Reg file
@@ -507,7 +524,8 @@ MEM_WB_REG mem_wb_reg(
 // The control unit
 Control #(35) cu(
     .instruction(id_is),
-    .control_signals(control_signals)
+    .control_signals(control_signals),
+    .error(cu_error)
 );
 
 // The sign extend unit
@@ -552,7 +570,7 @@ Pipline_CTRL pcu(
     .clk(clk),    // 100Mhz
     .rstn(rstn),
 
-    .pdu_clk(pdu_clk)
+   // .pdu_clk(pdu_clk),
     
     .if_is(imu_dout), 
     .id_is(id_is), 
@@ -567,7 +585,7 @@ Pipline_CTRL pcu(
     .wb_pc(wb_pc),
 
     .ex_npc_mux_sel(ex_npc_mux_sel),
-    .error(ccu_error),
+    .error(cpu_error),
     .ebreak(ebreak),
     .pdu_breakpoint(pdu_breakpoint),
 
@@ -601,8 +619,20 @@ Pipline_CTRL pcu(
     .cpu_stop(cpu_stop)
 );
 
+// ERROR
 
-// MUXs
+
+Error_Detect err(
+    .ccu_error(ccu_error),
+    .cu_error(cu_error),
+    .imu_error(imu_error),
+    .dmu_error(dmu_error),
+
+    .cpu_error(cpu_error)
+);
+
+
+// MUXs ==========================================================================================================
 
 MUX2 #(32) ccu_ans_mux(
     .data1(mem_ccu_fast_ans),
@@ -722,7 +752,6 @@ DEBUG debug(
     // Debug_BUS
     .chk_addr(chk_addr),    // debug address
     .chk_data(chk_data),    // debug data
-    .chk_pc(chk_pc),        // current pc
 
     // DataPath state
 //================================== IF PART ==================================

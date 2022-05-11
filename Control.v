@@ -34,7 +34,8 @@ module Control#(
 )
 (
     input [31:0] instruction,
-    output wire [SIGNUM-1:0] control_signals    // The number of ctrl sigs is unsure yet
+    output [SIGNUM-1:0] control_signals,    // The number of ctrl sigs is unsure yet
+    output reg error
 );
 
 reg [2:0] rs2_mux_sel_ctrl, rs1_mux_sel_ctrl;
@@ -215,6 +216,7 @@ always @(instruction) begin
     dmu_mode = BY_WORD;
     ebreak = 1'b0;
     csr_we = 1'b0;
+    error = 1'b0;
 
     case (instruction[6:0])     // Check the opcode
         
@@ -708,6 +710,7 @@ always @(instruction) begin
             dm_rd = 1'b0;
             jump_ctrl = NPC;
             ccu_mode = ADD;
+            error = 1'b1;
         end
 
     endcase
