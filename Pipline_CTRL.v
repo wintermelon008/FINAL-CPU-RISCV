@@ -263,22 +263,23 @@ end
 // Below is the PCU state machine
 
 always @(*) begin
-
     if (~rstn) begin
         next_state = Reset;
     end
     else begin
+        next_state = Reset;
+        
         case (current_state) 
             Wait: begin
                 next_state = Wait;
 
                 if (ebreak) begin
                     // Stop the clock only
-                    next_state = WAIT;
+                    next_state = Wait;
                 end 
                 else if (user_breakpoint) begin
                     // Stop the clock only
-                    next_state = WAIT;
+                    next_state = Wait;
                 end
                 else if (csr_wen) begin
                     // Program CSR instruction write
@@ -310,6 +311,8 @@ always @(*) begin
             end
 
             Reload: next_state = Wait;
+
+            Reset: next_state = Wait;
 
         endcase
     end

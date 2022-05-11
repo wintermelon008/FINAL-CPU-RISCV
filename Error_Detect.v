@@ -58,7 +58,7 @@ module Error_Detect(
 
         if (ccu_error == DIV_BY_ZERO)
             cpu_error = ERROR_DIV_BY_ZERO;
-        if (imu_addr || dmu_addr)
+        if (imu_error || dmu_error)
             cpu_error = ERROR_MEM_ACCESS_ERR;
         else if (cu_error)
             cpu_error = ERROR_IS_OPCODE_ERR;
