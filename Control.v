@@ -22,7 +22,7 @@
 /*
     ================================  Control module   ================================
     Author:         Wintermelon
-    Last Edit:      2022.4.20
+    Last Edit:      2022.5.12
 
     This is the control unit for our cpu
     decides all the control signals
@@ -38,7 +38,7 @@ module Control#(
     output reg error
 );
 
-reg [2:0] rs2_mux_sel_ctrl, rs1_mux_sel_ctrl;
+reg [2:0] sr2_mux_sel, sr1_mux_sel;
 reg [2:0] rf_wb_mux_sel;
 reg rf_sr1_mux_sel, rf_sr2_mux_sel;
 reg rfi_we, rff_we, dm_we, dm_rd, csr_we;
@@ -183,9 +183,27 @@ reg ebreak;
     localparam BY_BYTE = 3'h3;
     localparam BY_BYTE_U = 4'h4;
 
+
+// Below is the mux sel info
+    localparam SR1_REG = 3'b000;
+    localparam SR1_PC = 3'b001;
+    localparam SR1_CSR = 3'b010;
+    localparam SR1_ZERO = 3'b011;
+
+    localparam SR2_REG = 3'b000;
+    localparam SR2_IMM = 3'b001;
+    localparam SR2_CSR = 3'b010;
+    localparam SR2_ZERO = 3'b011;
+
+    localparam RF_CCU = 3'b000;
+    localparam RF_PCP4 = 3'b001;
+    localparam RF_DMU = 3'b010;
+    localparam RF_CSR = 3'b011;
+    localparam RF_ZERO = 3'b110;
+
 // Below is the control signals connection
-    assign control_signals[2:0] = rs1_mux_sel_ctrl;
-    assign control_signals[5:3] = rs2_mux_sel_ctrl;
+    assign control_signals[2:0] = sr1_mux_sel;
+    assign control_signals[5:3] = sr2_mux_sel;
     assign control_signals[8:6] = rf_wb_mux_sel;
     assign control_signals[9] = rf_sr1_mux_sel;
     assign control_signals[10] = rf_sr2_mux_sel;
@@ -203,8 +221,6 @@ reg ebreak;
     assign control_signals[34] = ebreak;
 
 
-
-
 // READ ME!
 // the control signals havent edited yet
 
@@ -217,6 +233,11 @@ always @(instruction) begin
     ebreak = 1'b0;
     csr_we = 1'b0;
     error = 1'b0;
+
+    sr1_mux_sel = SR1_ZERO;
+    sr2_mux_sel = SR2_ZERO;
+    rf_wb_mux_sel = RF_ZERO;
+    
 
     case (instruction[6:0])     // Check the opcode
         
@@ -383,9 +404,9 @@ always @(instruction) begin
                 end
             endcase
 
-            rs1_mux_sel_ctrl = 3'b000;
-            rs2_mux_sel_ctrl = 3'b000;
-            rf_wb_mux_sel = 3'b000;
+            sr1_mux_sel = SR1_REG;
+            sr2_mux_sel = SR2_REG;
+            rf_wb_mux_sel = RF_CCU;
             rfi_we = 1'b1;
             dm_we = 1'b0;
             dm_rd = 1'b0;
@@ -475,9 +496,9 @@ always @(instruction) begin
             
             
 
-            rs1_mux_sel_ctrl = 3'b000;
-            rs2_mux_sel_ctrl = 3'b001;
-            rf_wb_mux_sel = 3'b000;
+            sr1_mux_sel = SR1_REG;
+            sr2_mux_sel = SR2_IMM;
+            rf_wb_mux_sel = RF_CCU;
             rfi_we = 1'b1;
             dm_we = 1'b0;
             dm_rd = 1'b0;
@@ -521,9 +542,6 @@ always @(instruction) begin
                 end
             endcase
 
-            rs1_mux_sel_ctrl = 3'b000;
-            rs2_mux_sel_ctrl = 3'b000;
-            rf_wb_mux_sel = 3'b000;
             rfi_we = 1'b0;
             dm_rd = 1'b0;
             dm_we = 1'b0;
@@ -563,9 +581,9 @@ always @(instruction) begin
                 end
                 
             endcase
-            rs1_mux_sel_ctrl = 3'b000;
-            rs2_mux_sel_ctrl = 3'b001;
-            rf_wb_mux_sel = 3'b010;
+            sr1_mux_sel = SR1_REG;
+            sr2_mux_sel = SR2_IMM;
+            rf_wb_mux_sel = RF_DMU;
             rfi_we = 1'b1;
             dm_we = 1'b0;
             dm_rd = 1'b1;
@@ -574,9 +592,9 @@ always @(instruction) begin
         end
 
         MemoryStore: begin  // sw
-            rs1_mux_sel_ctrl = 3'b000;
-            rs2_mux_sel_ctrl = 3'b001;
-            rf_wb_mux_sel = 3'b000;
+            sr1_mux_sel = SR1_REG;
+            sr2_mux_sel = SR2_IMM;
+            rf_wb_mux_sel = RF_ZERO;
             rfi_we = 1'b0;
             dm_we = 1'b1;
             dm_rd = 1'b0;
@@ -585,9 +603,7 @@ always @(instruction) begin
         end
 
         JumpandlinkI: begin  // jal
-            rs1_mux_sel_ctrl = 3'b000;
-            rs2_mux_sel_ctrl = 3'b000;
-            rf_wb_mux_sel = 3'b001;
+            rf_wb_mux_sel = RF_PCP4;
             rfi_we = 1'b1;
             dm_we = 1'b0;
             dm_rd = 1'b0;
@@ -596,9 +612,9 @@ always @(instruction) begin
         end
 
         JumpandlinkR: begin  // jalr
-            rs1_mux_sel_ctrl = 3'b000;
-            rs2_mux_sel_ctrl = 3'b001;
-            rf_wb_mux_sel = 3'b001;
+            sr1_mux_sel = SR1_REG;
+            sr2_mux_sel = SR2_IMM;
+            rf_wb_mux_sel = RF_PCP4;
             rfi_we = 1'b1;
             dm_we = 1'b0;
             dm_rd = 1'b0;
@@ -607,9 +623,9 @@ always @(instruction) begin
         end
 
         Adduppertopc: begin  // auipc
-            rs1_mux_sel_ctrl = 3'b001;
-            rs2_mux_sel_ctrl = 3'b001;
-            rf_wb_mux_sel = 3'b000;
+            sr1_mux_sel = SR1_PC;
+            sr2_mux_sel = SR2_IMM;
+            rf_wb_mux_sel = RF_CCU;
             rfi_we = 1'b1;
             dm_we = 1'b0;
             dm_rd = 1'b0;
@@ -618,9 +634,9 @@ always @(instruction) begin
         end
 
         Loadupperimm: begin  // lui     
-            rs1_mux_sel_ctrl = 3'b011;
-            rs2_mux_sel_ctrl = 3'b001;
-            rf_wb_mux_sel = 3'b000;
+            sr1_mux_sel = SR1_ZERO;
+            sr2_mux_sel = SR2_IMM;
+            rf_wb_mux_sel = RF_CCU;
             rfi_we = 1'b1;
             dm_we = 1'b0;
             dm_rd = 1'b0;
@@ -630,9 +646,7 @@ always @(instruction) begin
 
         ControlStatus: begin
             csr_we = 1'b1;
-            rs1_mux_sel_ctrl = 3'b000;
-            rs2_mux_sel_ctrl = 3'b000;
-            rf_wb_mux_sel = 3'b011;
+            rf_wb_mux_sel = RF_CSR;
             ccu_mode = ADD;
             rfi_we = 1'b1;
             dm_we = 1'b0;
@@ -647,41 +661,41 @@ always @(instruction) begin
                 case(instruction[14:12])
                     3'b001: begin
                         // csrrw
-                        rs1_mux_sel_ctrl = 3'b000;
-                        rs2_mux_sel_ctrl = 3'b011;
+                        sr1_mux_sel = SR1_REG;
+                        sr2_mux_sel = SR2_ZERO;
                     end
 
                     3'b010: begin
                         // csrrs
-                        rs1_mux_sel_ctrl = 3'b000;
-                        rs2_mux_sel_ctrl = 3'b010;
+                        sr1_mux_sel = SR1_REG;
+                        sr2_mux_sel = SR2_CSR;
                         ccu_mode = OR;
                     end
 
                     3'b011: begin
                         // csrrc
-                        rs1_mux_sel_ctrl = 3'b000;
-                        rs2_mux_sel_ctrl = 3'b010;
+                        sr1_mux_sel = SR1_REG;
+                        sr2_mux_sel = SR2_CSR;
                         ccu_mode = AND;
                     end
 
                     3'b101: begin
                         // csrrwi
-                        rs1_mux_sel_ctrl = 3'b011;
-                        rs2_mux_sel_ctrl = 3'b001;
+                        sr1_mux_sel = SR1_ZERO;
+                        sr2_mux_sel = SR2_IMM;
                     end
 
                     3'b110: begin
                         // csrrsi
-                        rs1_mux_sel_ctrl = 3'b010;
-                        rs2_mux_sel_ctrl = 3'b001;
+                        sr1_mux_sel = SR1_CSR;
+                        sr2_mux_sel = SR2_IMM;
                         ccu_mode = OR;
                     end
 
                     3'b111: begin
                         // csrrci
-                        rs1_mux_sel_ctrl = 3'b010;
-                        rs2_mux_sel_ctrl = 3'b001;
+                        sr1_mux_sel = SR1_CSR;
+                        sr2_mux_sel = SR2_IMM;
                         ccu_mode = AND;
                     end
 
@@ -690,26 +704,18 @@ always @(instruction) begin
                 
         end
 
-        7'b0000000: begin   //not an is
-            rs1_mux_sel_ctrl = 3'b000;
-            rs2_mux_sel_ctrl = 3'b000;
-            rf_wb_mux_sel = 3'b000;     // always zero
-            rfi_we = 1'b0;
-            dm_we = 1'b0;
-            dm_rd = 1'b0;
-            jump_ctrl = NPC;
-            ccu_mode = ADD;
-        end
+        // 7'b0000000: begin   //not an is
+        //     sr1_mux_sel = 3'b000;
+        //     sr2_mux_sel = 3'b000;
+        //     rf_wb_mux_sel = 3'b000;     // always zero
+        //     rfi_we = 1'b0;
+        //     dm_we = 1'b0;
+        //     dm_rd = 1'b0;
+        //     jump_ctrl = NPC;
+        //     ccu_mode = ADD;
+        // end
 
         default: begin  // all the signals are zero
-            rs1_mux_sel_ctrl = 3'b011;
-            rs2_mux_sel_ctrl = 3'b011;
-            rf_wb_mux_sel = 3'b000;
-            rfi_we = 1'b0;
-            dm_we = 1'b0;
-            dm_rd = 1'b0;
-            jump_ctrl = NPC;
-            ccu_mode = ADD;
             error = 1'b1;
         end
 

@@ -445,9 +445,9 @@ end
 
 // CSRs
 CSR_UNIT csr(
-    .csr_we(),
-    .csr_clk(),
-    .rstn(),
+    .csr_we(csr_we),
+    .csr_clk(clk),
+    .rstn(rstn),
 
     // CSRs
     .mtevc_din(mtevc),

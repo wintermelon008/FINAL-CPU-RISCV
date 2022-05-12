@@ -22,8 +22,8 @@
 /*
     ================================  Pipeline_CPU module   ================================
     Author:         Wintermelon
-    Version:        1.1.9
-    Last Edit:      2022.5.11
+    Version:        1.1.10
+    Last Edit:      2022.5.12
 
     This is the cpu topmodule for Pipeline
 
@@ -48,6 +48,9 @@
         * MUX8
         * DEBUG
 */
+
+// ### Version 1.1.10 update ###
+// Small changes to control unit
 
 // ### Version 1.1.9 update ###
 // Change the debug ways for PDU
@@ -658,7 +661,7 @@ MUX8 #(32) rf_mux(
     .data4(wb_csr_dout),
     .data5(zero),
     .data6(zero),
-    .data7(zero),
+    .data7(32'b0),
     .data8(32'b1),
     .sel(rf_mux_sel),
     .out(rfi_dr_data)
