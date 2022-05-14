@@ -40,7 +40,9 @@ module PC
         dout <= 32'h3000;
     end
     always @(posedge clk) begin 
-        if (wen) 
+        if (wen) begin
             dout <= din;
+        end
+            
     end
 endmodule

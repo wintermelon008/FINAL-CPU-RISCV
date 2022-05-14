@@ -123,6 +123,13 @@ Pipeline_CPU cpu(
     .chk_if_pc(if_pc), 	
     .chk_id_pc(id_pc),
     .chk_addr(chk_addr),	// Debug address
-    .chk_data(chk_data)  // Debug data
+    .chk_data(chk_data),  // Debug data
+
+    // outside signals
+    .butc(butc),
+    .butu(butu),
+    .butl(butl),
+    .butd(butd),
+    .butr(butr)
 );
 endmodule

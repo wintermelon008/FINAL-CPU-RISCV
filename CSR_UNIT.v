@@ -32,6 +32,8 @@
 
     With new designed CSRs below:
         mipd (Machine Interrupt Program Done)               address 0x100
+        bs (Button Status)                                  address 0x000   
+        // none:0 up:1 down:2 left:3 right:4 reset(mid): 5
 
 */
 
@@ -66,7 +68,10 @@ module CSR_UNIT(
     input [31:0] mipd_din,
     output [31:0] mipd_dout,
 
-    input [31:0] csr_debug_addr,
+    input [31:0] bs_din,
+    output [31:0] bs_dout,
+
+    input [11:0] csr_debug_addr,
     output reg [31:0] csr_debug_dout
 );
 
@@ -142,6 +147,20 @@ REG #(32) Mipd (
     .wen(mipd_we)
 );
 
+// bs (Button Status)                                   address 0x000
+// This CSR will save the interrupt program done flag
+wire bs_we;
+
+assign bs_we = csr_we;
+REG #(32) Bs (
+    .din(bs_din),
+    .dout(bs_dout),
+
+    .clk(csr_clk),
+    .rstn(rstn),
+    .wen(bs_we)
+);
+
 
 /*
     mtevc (Machine Trp-Vecor Base-Address Register)     address 0x305
@@ -160,6 +179,7 @@ always @(*) begin
         32'h341: csr_debug_dout = mepc_dout;
         32'h343: csr_debug_dout = mtval_dout;
         32'h100: csr_debug_dout = mipd_dout;
+        32'h000: csr_debug_dout = bs_dout;
         
         default: csr_debug_dout = 32'h0;
     endcase

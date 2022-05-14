@@ -105,7 +105,11 @@ module DEBUG(
 
     // DMU data
     output reg [19:0] dmu_debug_addr,
-    input [31:0] dmu_debug_data
+    input [31:0] dmu_debug_data,
+
+    // CSR data
+    output reg [11:0] csr_debug_addr,
+    input [31:0] csr_debug_data
 );
 /*
     The debug address table
@@ -117,6 +121,7 @@ always @(*) begin
     rf_debug_addr = chk_addr[4:0];
     imu_debug_addr = chk_addr[19:0];
     dmu_debug_addr = chk_addr[19:0];
+    csr_debug_addr = chk_addr[11:0];
 end
 
 always @(*) begin
@@ -223,6 +228,9 @@ always @(*) begin
         end
         4'h5: begin // User stack
             chk_data = dmu_debug_data;
+        end
+        4'h6: begin // CSR
+            chk_data = csr_debug_data;
         end
         default: chk_data = 32'h0;
  

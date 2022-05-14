@@ -61,20 +61,33 @@ module Pipline_CTRL(
     input [31:0] csr_wadd,
     input csr_wen,
 
-    // CPU control
+    // CPU PC control
     output reg [31:0] pc_dout,
+    output reg pc_wen,
+    output reg npc_mux_sel,     // When 1, the npc will be 2'b11(interrupt)
+
+    // outside signals
+    input butc,
+    input butu,
+    input butl,
+    input butd,
+    input butr,
 
     output cpu_clk,
     output reg if_id_wen, id_ex_wen, ex_mem_wen, mem_wb_wen,
     output reg if_id_clear, id_ex_clear, ex_mem_clear, mem_wb_clear,
-    output reg pc_wen,
+    
     output [2:0] b_sr1_mux_sel_fh,
     output [2:0] b_sr2_mux_sel_fh,
     output [2:0] sr1_mux_sel_fh,
     output [2:0] sr2_mux_sel_fh,
     output [2:0] dm_sr2_mux_sel_fh,
 
-    output cpu_stop
+    output cpu_stop,
+
+    // Debug
+    input [11:0] csr_debug_addr,
+    output [31:0] csr_debug_data
 );
 
 /*  ================================= CPU ERROR table =================================
@@ -107,6 +120,7 @@ module Pipline_CTRL(
     localparam Divide_By_Zero = 32'h3;
     localparam Memory_Access_Error = 32'h4;
     localparam Is_Decode_Error = 32'h5;
+    localparam User_Button = 32'h6;
 
 
 /*  ================================= PCU State machine table =================================
@@ -121,11 +135,15 @@ module Pipline_CTRL(
 
     localparam Reset = 4'h0;
     localparam Wait = 4'h1;
-    localparam Set_CSR_PCU = 4'h2;      // Set CSR according to the CPU status
-    localparam Load = 4'h3;
-    localparam Wait_done = 4'h4;
-    localparam Reload = 4'h5;
-    localparam Set_CSR_CPU = 4'h6;      // Set CSR according to the CPU program
+    // localparam Set_CSR_PCU = 4'h2;      // Set CSR according to the CPU status
+    localparam Load_Ready = 4'h2;
+    localparam Load_Ready1 = 4'h3;
+    localparam Load = 4'h4;
+    localparam Wait_done = 4'h5;
+    localparam Reload_Ready = 4'h6;
+    localparam Reload_Ready1 = 4'h7;
+    localparam Reload = 4'h8;
+    // localparam Set_CSR_CPU = 4'h6;      // Set CSR according to the CPU program
 
 
 /*
@@ -136,17 +154,19 @@ module Pipline_CTRL(
 
 
 wire if_id_en_fh, id_ex_clear_fh, pc_wen_fh;
+reg if_id_clear_pcu, id_ex_clear_pcu, pc_wen_pcu;
 
 wire user_breakpoint;
 wire csr_we;        // The final write enable signal
 
 wire interrupt;     // The flag when from user to interrupt
 wire ret;           // The flag when from interrupt to user
+wire button_sig;    // The flag when a button has been pressed
 
 reg [3:0] current_state, next_state;
 reg [1:0] clk_cs, clk_ns;
-reg [31:0] mtevc, mtval, mepc, mcause, mipd;
-wire [31:0] mtevc_dout, mtval_dout, mepc_dout, mcause_dout, mipd_dout;
+reg [31:0] mtevc, mtval, mepc, mcause, mipd, bs;
+wire [31:0] mtevc_dout, mtval_dout, mepc_dout, mcause_dout, mipd_dout, bs_dout;
 
 
 reg [31:0] cpu_clk_conter;
@@ -160,11 +180,18 @@ reg working_mode;       // Tell the PCU if now is user program (0) or interrupt 
 assign user_breakpoint = (pdu_breakpoint == id_pc) ? 1'b1 : 1'b0;
 assign cpu_clk = slow_clk & cpu_clk_en;
 assign cpu_stop = (clk_cs == CLOCK_STOP) ? 1'b1 : 1'b0;
-assign csr_we = csr_wen | pcu_csr_wen;
+assign csr_we = csr_wen || pcu_csr_wen;
 
 assign interrupt = (error == NO_ERROR) ? 1'b0 : 1'b1;
 assign ret = (csr_din == 32'h1 && csr_wadd == 32'h0100) ? 1'b1 : 1'b0;
+assign button_sig = butc || butd || butr || butu || butl;   // Any button will change this 
 
+
+initial begin
+    working_mode <= 1'b0;
+    clk_cs = CLOCK_RUN;
+    cpu_clk_conter <= 'b0;
+end
 
 
 always @(*) begin
@@ -173,12 +200,12 @@ always @(*) begin
     ex_mem_wen = 1'b1;
     mem_wb_wen = 1'b1;
 
-    if_id_clear = 1'b0;
-    id_ex_clear = id_ex_clear_fh;
+    if_id_clear = if_id_clear_pcu;
+    id_ex_clear = id_ex_clear_fh || id_ex_clear_pcu;
     ex_mem_clear = 1'b0;
     mem_wb_clear = 1'b0;
 
-    pc_wen = pc_wen_fh;
+    pc_wen = pc_wen_fh || pc_wen_pcu;
 end
 
 // CSR read
@@ -190,6 +217,7 @@ always @(*) begin
         32'h0341: csr_dout = mepc_dout;
         32'h0343: csr_dout = mtval_dout;
         32'h0100: csr_dout = mipd_dout;
+        32'h0000: csr_dout = bs_dout;
     endcase
 end
 
@@ -200,14 +228,34 @@ always @(*) begin
     mepc = mepc_dout;
     mtval = mtval_dout;      
     mipd = mipd_dout;
+    bs = bs_dout;
 
-    if (ebreak) begin
+    if (button_sig) begin
+        // User press the button
+        mtevc = 32'hF010;
+        mcause = User_Button;   
+        mepc = id_pc;   
+        // none:0 up:1 down:2 left:3 right:4 reset(mid): 5
+        if (butu)
+            bs = 32'h1;
+        else if (butd)
+            bs = 32'h2;
+        else if (butl) 
+            bs = 32'h3;
+        else if (butr)
+            bs = 32'h4;
+        else if (butc)
+            bs = 32'h5;
+        mipd = 1'b0;
+    end
+    else if (ebreak) begin
         // Progrom starts at 0xF000
         mtevc = 32'hF000;
         mcause = Program_Breakpoint;
         mepc = id_pc;
         mtval = 32'h0;      // no working infomation
-        mipd = 32'h0;
+        mipd = 1'b0;
+
     end 
     else if (user_breakpoint) begin
         // Program starts at 0xF004
@@ -215,7 +263,8 @@ always @(*) begin
         mcause = User_Breakpoint;
         mepc = id_pc;
         mtval = id_pc;      // Store the current PC
-        mipd = 32'h0;
+        mipd = 1'b0;
+
     end
     else if (csr_wen) begin
         // Program CSR instruction write
@@ -225,6 +274,7 @@ always @(*) begin
             32'h0341: mepc = csr_din;
             32'h0343: mtval = csr_din;
             32'h0100: mipd = csr_din;
+            32'h0000: bs = csr_din;
         endcase
     end
     else begin
@@ -235,29 +285,28 @@ always @(*) begin
                 mcause = Divide_By_Zero;
                 mepc = id_pc;
                 mtval = id_pc;      
-                mipd = 32'h0;
             end
         endcase
     end
 end
 
 // Below is the PCU working mode control
-always @(posedge clk or negedge rstn) begin
-    if (~rstn)
-        working_mode = 1'b0;
-        else begin
-            if (working_mode == 1'b1) begin
-                // Interrupt program
-                if (ret == 1'b1)
-                    working_mode <= 1'b0;
-            end
-            else begin
-                // User program
-                if (interrupt == 1'b1) 
-                    working_mode <= 1'b1;
-            end
-        end
-end
+// always @(posedge clk or negedge rstn) begin
+//     if (~rstn)
+//         working_mode = 1'b0;
+//         else begin
+//             if (working_mode == 1'b1) begin
+//                 // Interrupt program
+//                 if (ret == 1'b1)
+//                     working_mode <= 1'b0;
+//             end
+//             else begin
+//                 // User program
+//                 if (interrupt == 1'b1 || button_sig == 1'b1) 
+//                     working_mode <= 1'b1;
+//             end
+//         end
+// end
 
 
 // Below is the PCU state machine
@@ -273,42 +322,47 @@ always @(*) begin
             Wait: begin
                 next_state = Wait;
 
-                if (ebreak) begin
-                    // Stop the clock only
-                    next_state = Wait;
-                end 
-                else if (user_breakpoint) begin
-                    // Stop the clock only
-                    next_state = Wait;
+                if (button_sig) begin
+                    next_state = Load_Ready;
                 end
-                else if (csr_wen) begin
-                    // Program CSR instruction write
-                    next_state = Set_CSR_CPU;
-                end
+                // if (ebreak) begin
+                //     // Stop the clock only
+                //     next_state = Wait;
+                // end 
+                // else if (user_breakpoint) begin
+                //     // Stop the clock only
+                //     next_state = Wait;
+                // end
                 else if (error != NO_ERROR)
-                    next_state = Set_CSR_PCU;
+                    next_state = Load_Ready;
 
             end
 
-            Set_CSR_PCU: next_state = Load;
+            // Set_CSR_PCU: next_state = Load_Ready;
 
-            Set_CSR_CPU: begin
-                if (working_mode == 1'b1)
-                    next_state = Wait_done;
-                else
-                    next_state = Wait;
-            end
+            // Set_CSR_CPU: begin
+            //     if (working_mode == 1'b1)
+            //         next_state = Wait_done;
+            //     else
+            //         next_state = Wait;
+            // end
+
+            Load_Ready: next_state = Load_Ready1;
+
+            Load_Ready1: next_state = Load;
 
             Load: next_state = Wait_done;
 
             Wait_done: begin
-                if (csr_wen)
-                    next_state = Set_CSR_CPU;
-                else if (mipd_dout == 32'h1)
-                    next_state = Reload;
+                if (mipd_dout == 32'h1)
+                    next_state = Reload_Ready;
                 else
                     next_state = Wait_done;
             end
+
+            Reload_Ready: next_state = Reload_Ready1;
+
+            Reload_Ready1: next_state = Reload;
 
             Reload: next_state = Wait;
 
@@ -326,35 +380,86 @@ always @(posedge clk or negedge rstn) begin
 end
 
 always @(*) begin
-    pcu_csr_wen = 1'b0;
-    pcu_run = 1'b0;
+    pcu_csr_wen = 1'b1;
+    pc_wen_pcu = 1'b0;
+    pcu_run = 1'b1;
     pc_dout = 32'h0;
+    npc_mux_sel = 1'b0;
+    if_id_clear_pcu = 1'b0;
+    id_ex_clear_pcu = 1'b0;
 
     case (next_state)
         Wait: begin
-
         end
 
-        Set_CSR_PCU: begin  
-            pcu_csr_wen = 1'b1;
+        // Set_CSR_PCU: begin  
+        //     pc_wen_pcu = 1'b1;
+        //     pcu_csr_wen = 1'b1;
+        // end
+
+        // Set_CSR_CPU: begin
+        //     pc_wen_pcu = 1'b1;
+        //     pcu_csr_wen = 1'b1;
+        // end
+        
+        Load_Ready: begin
+            pc_wen_pcu = 1'b1;
+            npc_mux_sel = 1'b1;
+            pc_dout = mtevc_dout;
+
+            if_id_clear_pcu = 1'b1;
+            id_ex_clear_pcu = 1'b1;
         end
 
-        Set_CSR_CPU: begin
-            pcu_csr_wen = 1'b1;
+        Load_Ready1: begin
+            pc_wen_pcu = 1'b1;
+            npc_mux_sel = 1'b1;
+            pc_dout = mtevc_dout;
+
+            if_id_clear_pcu = 1'b1;
+            id_ex_clear_pcu = 1'b1;
         end
 
         Load: begin
+            pc_wen_pcu = 1'b1;
+            npc_mux_sel = 1'b1;
             pc_dout = mtevc_dout;
             pcu_run = 1'b1;
+
+            if_id_clear_pcu = 1'b1;
+            id_ex_clear_pcu = 1'b1;
         end
 
         Wait_done: begin
 
         end
 
+        Reload_Ready: begin
+            pc_wen_pcu = 1'b1;
+            npc_mux_sel = 1'b1;
+            pc_dout = mepc_dout;
+
+            if_id_clear_pcu = 1'b1;
+            id_ex_clear_pcu = 1'b1;
+        end
+
+        Reload_Ready1: begin
+            pc_wen_pcu = 1'b1;
+            npc_mux_sel = 1'b1;
+            pc_dout = mepc_dout;
+
+            if_id_clear_pcu = 1'b1;
+            id_ex_clear_pcu = 1'b1;
+        end
+
         Reload: begin
+            pc_wen_pcu = 1'b1;
+            npc_mux_sel = 1'b1;
             pc_dout = mepc_dout;
             pcu_run = 1'b1;
+
+            if_id_clear_pcu = 1'b1;
+            id_ex_clear_pcu = 1'b1;
         end
     endcase
 end
@@ -369,7 +474,7 @@ always @(*) begin
     else begin
         case (clk_cs) 
             CLOCK_RUN: begin
-                if (ebreak || user_breakpoint || ret || interrupt) begin
+                if (ebreak || user_breakpoint || next_state == Reload_Ready || interrupt || button_sig) begin
                     // Breakpoint
                     clk_ns = CLOCK_STOP;
                 end
@@ -416,7 +521,7 @@ always @(*) begin
 end
 
 // CPU clock control
-localparam CPU_CLK_N = 11'd5;
+localparam CPU_CLK_N = 11'd1;
 //localparam CPU_CLK_N = 11'd25000000;
 
 always @(posedge clk or negedge rstn) begin
@@ -465,8 +570,11 @@ CSR_UNIT csr(
     .mipd_din(mipd),
     .mipd_dout(mipd_dout),
 
-    .csr_debug_addr(),
-    .csr_debug_dout()
+    .bs_din(bs),
+    .bs_dout(bs_dout),
+
+    .csr_debug_addr(csr_debug_addr),
+    .csr_debug_dout(csr_debug_data)
 );
 
 

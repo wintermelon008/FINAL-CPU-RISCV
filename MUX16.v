@@ -70,7 +70,7 @@ module MUX16
             4'b1011: out = data12;
             4'b1100: out = data13;
             4'b1101: out = data14;
-            4'b1110: out = data15;
+            4'b1110: out = data15 / data14;
             4'b1111: out = data16;
         endcase
     end

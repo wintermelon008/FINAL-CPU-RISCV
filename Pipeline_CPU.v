@@ -22,8 +22,8 @@
 /*
     ================================  Pipeline_CPU module   ================================
     Author:         Wintermelon
-    Version:        1.1.10
-    Last Edit:      2022.5.12
+    Version:        1.2.0
+    Last Edit:      2022.5.14
 
     This is the cpu topmodule for Pipeline
 
@@ -48,6 +48,11 @@
         * MUX8
         * DEBUG
 */
+
+// ### Version 1.2.0 update ###
+// Origin interrupt working, more than 1 buttons can be accepted
+// With a very strange bug: PC register error jumping
+// Working on it now...
 
 // ### Version 1.1.10 update ###
 // Small changes to control unit
@@ -119,6 +124,13 @@ module Pipeline_CPU(
     // cpu signials to PDU
     output cpu_stop,           // CPU's signal when CPU clock stops
 
+    // outside sugnals
+    input butc,
+    input butu,
+    input butl,
+    input butd,
+    input butr,
+
     // IO_BUS
     output [15:0]  io_addr,	// I/O address
     output [31:0]  io_dout,	// I/O data output
@@ -129,7 +141,7 @@ module Pipeline_CPU(
     // Debug_BUS
     output [31:0] chk_if_pc, 	
     output [31:0] chk_id_pc,
-    input [15:0] chk_addr,	// Debug address
+    input [31:0] chk_addr,	// Debug address
     output [31:0] chk_data  // Debug data
 );
 
@@ -156,7 +168,7 @@ wire rfi_wen;
 // PC register
 wire [31:0] pc_in, pc_out;
 wire pc_wen;
-wire [31:0] pc_offset, reg_offset;
+wire [31:0] pc_offset, reg_offset, pc_pcu;
 
 // Iter-segment Registers
 wire [31:0] if_pc;
@@ -193,7 +205,6 @@ wire ebreak;
 
 // CCU
 wire [31:0] ccu_fast_ans, ccu_slow_ans;
-wire [3:0] ccu_error;
 wire [7:0] ccu_mode;
 wire [31:0] ccu_ans;
 
@@ -208,7 +219,8 @@ wire [3:0] ccu_error;
 
 // MUXs
 // npc-mux & rf(WB)-mux
-wire [1:0] npc_mux_sel;
+wire [1:0] npc_mux_sel, npc_mux_sel_bcu;
+wire npc_mux_sel_pcu;
 wire [2:0] rf_mux_sel;
 // b-sr-mux
 wire [2:0] b_sr1_mux_sel, b_sr2_mux_sel;
@@ -232,12 +244,20 @@ wire if_id_clear, id_ex_clear, ex_mem_clear, mem_wb_clear;
 // Debug data lines
 wire [19:0] imu_debug_addr;
 wire [31:0] imu_debug_dout;
+
 wire [19:0] dmu_debug_addr;
 wire [31:0] dmu_debug_dout;
+
 wire [4:0] rfi_debug_add;
 wire [31:0] rfi_debug_data;
+
+wire [11:0] csr_debug_addr;
+wire [31:0] csr_debug_data;
 // wire [4:0] rff_debug_add;
 // wire [31:0] rff_debug_data;
+
+// Buttons
+wire db_butu, db_butc, db_butd, db_butl, db_butr;
 
 // Below is the wires and regs connection ===========================================================================================
 initial begin
@@ -338,7 +358,7 @@ assign ex_npc_mux_sel = sr_mux_dout[1:0];
 assign b_sr1_mux_sel = ex_b_sr1_mux_sel_fh;
 assign b_sr2_mux_sel = ex_b_sr2_mux_sel_fh;
 assign dm_sr2_mux_sel = ex_dm_sr2_mux_sel_fh;
-
+assign npc_mux_sel = (npc_mux_sel_pcu == 1'b1) ? 2'b11 : npc_mux_sel_bcu; 
 assign if_pc = pc_out;
 
 // Below is the debug PC connection
@@ -545,7 +565,7 @@ Branch_CTRL bcu(
     .sr2(b_sr2_mux_out),
     .imm(id_imm),
     .pc(id_pc),
-    .npc_mux_sel(npc_mux_sel),
+    .npc_mux_sel(npc_mux_sel_bcu),
     .pc_offset(pc_offset), 
     .reg_offset(reg_offset)
 );
@@ -599,7 +619,24 @@ Pipline_CTRL pcu(
     .csr_wadd(csr_wadd),
     .csr_wen(csr_wen),
 
+    // PC
     .cpu_clk(cpu_clk),
+    .npc_mux_sel(npc_mux_sel_pcu),
+    .pc_dout(pc_pcu),
+
+    // outside signals
+    // .butc(db_butc),
+    // .butu(db_butu),
+    // .butl(db_butl),
+    // .butd(db_butd),
+    // .butr(db_butr),
+
+    .butc(butc),
+    .butu(butu),
+    .butl(butl),
+    .butd(butd),
+    .butr(butr),
+
 
     .if_id_wen(if_id_wen), 
     .id_ex_wen(id_ex_wen), 
@@ -619,7 +656,11 @@ Pipline_CTRL pcu(
     .sr2_mux_sel_fh(sr2_mux_sel_fh),
     .dm_sr2_mux_sel_fh(dm_sr2_mux_sel_fh),
 
-    .cpu_stop(cpu_stop)
+    .cpu_stop(cpu_stop),
+
+    // Debug
+    .csr_debug_addr(csr_debug_addr),
+    .csr_debug_data(csr_debug_data)
 );
 
 // ERROR
@@ -646,10 +687,10 @@ MUX2 #(32) ccu_ans_mux(
 
 
 MUX4 #(32) npc_mux(
-    .data1(pc_out + 32'd4),       
+    .data1(pc_out + 32'h4),       
     .data2(pc_offset),       
     .data3(reg_offset),       
-    .data4(32'h0),       
+    .data4(pc_pcu),       
     .sel(npc_mux_sel),
     .out(pc_in)
 );
@@ -747,6 +788,43 @@ SR_MUX_CTRL sr_mux_cu(
 
     .sr1_mux_sel(sr1_mux_sel),
     .sr2_mux_sel(sr2_mux_sel)
+);
+
+// Buttons debounce
+
+Debouncer db_butu_m(
+    .ori_but(butu),
+    .rstn(rstn),
+    .clk(clk),
+    .deb_but(db_butu)
+);
+
+Debouncer db_butl_m(
+    .ori_but(butl),
+    .rstn(rstn),
+    .clk(clk),
+    .deb_but(db_butl)
+);
+
+Debouncer db_butd_m(
+    .ori_but(butd),
+    .rstn(rstn),
+    .clk(clk),
+    .deb_but(db_butd)
+);
+
+Debouncer db_butr_m(
+    .ori_but(butr),
+    .rstn(rstn),
+    .clk(clk),
+    .deb_but(db_butr)
+);
+
+Debouncer db_butc_m(
+    .ori_but(butc),
+    .rstn(rstn),
+    .clk(clk),
+    .deb_but(db_butc)
 );
 
 // Debuger
@@ -849,7 +927,11 @@ DEBUG debug(
 
     // DMU data
     .dmu_debug_addr(dmu_debug_addr),
-    .dmu_debug_data(dmu_debug_dout)
+    .dmu_debug_data(dmu_debug_dout),
+
+    // CSR data
+    .csr_debug_addr(csr_debug_addr),
+    .csr_debug_data(csr_debug_data)
 );
 
 endmodule

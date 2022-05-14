@@ -216,6 +216,7 @@ reg ebreak;
 
     assign control_signals[27] = dm_we;
     assign control_signals[28] = dm_rd;
+    assign control_signals[29] = csr_we;
 
     assign control_signals[33:30] = jump_ctrl;
     assign control_signals[34] = ebreak;
@@ -704,16 +705,16 @@ always @(instruction) begin
                 
         end
 
-        // 7'b0000000: begin   //not an is
-        //     sr1_mux_sel = 3'b000;
-        //     sr2_mux_sel = 3'b000;
-        //     rf_wb_mux_sel = 3'b000;     // always zero
-        //     rfi_we = 1'b0;
-        //     dm_we = 1'b0;
-        //     dm_rd = 1'b0;
-        //     jump_ctrl = NPC;
-        //     ccu_mode = ADD;
-        // end
+        7'b0000000: begin   // just empty
+            sr1_mux_sel = SR1_ZERO;
+            sr2_mux_sel = SR2_ZERO;
+            rf_wb_mux_sel = RF_ZERO;     // always zero
+            rfi_we = 1'b0;
+            dm_we = 1'b0;
+            dm_rd = 1'b0;
+            jump_ctrl = NPC;
+            ccu_mode = ADD;
+        end
 
         default: begin  // all the signals are zero
             error = 1'b1;
