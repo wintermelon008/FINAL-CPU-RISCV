@@ -32,12 +32,14 @@
 
 module Data_MEM(
     input clk,
-    input [15:0] add_1,
+    input [31:0] add_1,
     input [31:0] data_1,
     input we_1,
     input [2:0] mode,
-    input [19:0] radd_2,    // debug
-    output reg [31:0] out_1, out_2,
+
+    input [14:0] radd_2,    // debug
+    output reg [11:0] out_1, out_2,
+
     output reg dm_error
 );
 
@@ -52,8 +54,8 @@ module Data_MEM(
 
 wire dm_we, stack_we;
 wire [31:0] dm_dout, stack_dout;
-wire [31:0] dm_debug_dout, stack_debug_dout;
-wire [11:0] dm_addr, dm_debug_addr;
+wire [31:0] screen_dout, stack_debug_dout;
+wire [14:0] dm_addr, screen_addr;
 wire [7:0] stack_addr, stack_debug_addr;
 
 reg [31:0] din, dout;
@@ -61,36 +63,76 @@ reg [31:0] din, dout;
 
 wire [31:0] dm_din, stack_din;
 
-assign dm_we = (add_1 < 16'h2C00 && we_1 == 1'b1) ? 1'b1 : 1'b0;
-assign stack_we = (add_1[15:10] == 6'b001011 && we_1 == 1'b1) ? 1'b1 : 1'b0;
+// assign dm_we = (add_1 < 16'h2C00 && we_1 == 1'b1) ? 1'b1 : 1'b0;
+assign dm_we = we_1;
+// assign stack_we = (add_1[15:10] == 6'b001011 && we_1 == 1'b1) ? 1'b1 : 1'b0;
 
-assign dm_addr = (add_1 >> 2);
-assign dm_debug_addr = radd_2[11:0];
-assign dm_din = din;
+assign dm_addr = add_1[14:0];
+assign screen_addr = radd_2[14:0];
 
-assign stack_addr = ((add_1 - 16'h2C00) >> 2);
-assign stack_debug_addr = radd_2[7:0];
-assign stack_din = din;
+assign dm_din = din[11:0];
 
-    data_mem data_m (
-        .a(dm_addr),        // input wire [11 : 0] a
-        .d(dm_din),        // input wire [31 : 0] d
-        .dpra(dm_debug_addr),  // input wire [11 : 0] dpra
-        .clk(clk),    // input wire clk
-        .we(dm_we),      // input wire we
-        .spo(dm_dout),    // output wire [31 : 0] spo
-        .dpo(dm_debug_dout)    // output wire [31 : 0] dpo
-    );
+// assign stack_addr = ((add_1 - 16'h2C00) >> 2);
+// assign stack_debug_addr = radd_2[7:0];
+// assign stack_din = din;
 
-    user_stack stack_m (
-        .a(stack_addr),        // input wire [7 : 0] a
-        .d(stack_din),        // input wire [31 : 0] d
-        .dpra(stack_debug_addr),  // input wire [7 : 0] dpra
-        .clk(clk),    // input wire clk
-        .we(stack_we),      // input wire we
-        .spo(stack_dout),    // output wire [31 : 0] spo
-        .dpo(stack_debug_dout)    // output wire [31 : 0] dpo
-    );
+    // data_mem data_m (
+    //     .a(dm_addr),        // input wire [11 : 0] a
+    //     .d(dm_din),        // input wire [31 : 0] d
+    //     .dpra(screen_addr),  // input wire [11 : 0] dpra
+    //     .clk(clk),    // input wire clk
+    //     .we(dm_we),      // input wire we
+    //     .spo(dm_dout),    // output wire [31 : 0] spo
+    //     .dpo(screen_dout)    // output wire [31 : 0] dpo
+    // );
+
+//     data_mem your_instance_name (
+//   .a(a),        // input wire [14 : 0] a
+//   .d(d),        // input wire [11 : 0] d
+//   .dpra(dpra),  // input wire [14 : 0] dpra
+//   .clk(clk),    // input wire clk
+//   .we(we),      // input wire we
+//   .spo(spo),    // output wire [11 : 0] spo
+//   .dpo(dpo)    // output wire [11 : 0] dpo
+// );
+
+screen_data dm_block (
+    .clka(clk),    // input wire clka
+    .wea(dm_we),      // input wire [0 : 0] wea
+    .addra(dm_addr),  // input wire [14 : 0] addra
+    .dina(dm_din),    // input wire [11 : 0] dina
+    .douta(dm_dout),
+
+    .clkb(slow_clk),    // input wire clkb
+    .enb(1'b1),
+    .addrb(screen_addr),  // input wire [14 : 0] addrb
+    .web(1'b0),
+    .dinb(12'b0),
+    .doutb(screen_dout),  // output wire [11 : 0] doutb
+
+);
+//   .clka(clka),    // input wire clka
+//   .wea(wea),      // input wire [0 : 0] wea
+//   .addra(addra),  // input wire [14 : 0] addra
+//   .dina(dina),    // input wire [11 : 0] dina
+//   .douta(douta),  // output wire [11 : 0] douta
+
+//   .clkb(clkb),    // input wire clkb
+//   .enb(enb),      // input wire enb
+//   .web(web),      // input wire [0 : 0] web
+//   .addrb(addrb),  // input wire [14 : 0] addrb
+//   .dinb(dinb),    // input wire [11 : 0] dinb
+//   .doutb(doutb)  // output wire [11 : 0] doutb
+
+    // user_stack stack_m (
+    //     .a(stack_addr),        // input wire [7 : 0] a
+    //     .d(stack_din),        // input wire [31 : 0] d
+    //     .dpra(stack_debug_addr),  // input wire [7 : 0] dpra
+    //     .clk(clk),    // input wire clk
+    //     .we(stack_we),      // input wire we
+    //     .spo(stack_dout),    // output wire [31 : 0] spo
+    //     .dpo(stack_debug_dout)    // output wire [31 : 0] dpo
+    // );
 
 always @(*) begin
     // store data
@@ -159,27 +201,25 @@ end
 
 always @(*) begin
     dm_error = 1'b0;
-    if (add_1[15:10] == 6'b001011) begin// stack
-        dout = stack_dout;
-    end
-    else if (add_1 < 16'h2C00) begin    // user data
-        dout = dm_dout;
-    end
-    else begin
-        dout = 32'h0;
-        if (we_1)
-            dm_error = 1'b1;
+    dout = dm_dout;
+    // if (add_1[15:10] == 6'b001011) begin// stack
+    //     dout = stack_dout;
+    // end
+    // else if (add_1 < 16'h2C00) begin    // user data
+    //     dout = dm_dout;
+    // end
+    // else begin
+    //     dout = 32'h0;
+        // if (we_1)
+        //     dm_error = 1'b1;
         // access error
-    end
+//    end
 end
 
 always @(*) begin
-    if (radd_2[19:15] == 4'h3) begin    // stack
-        out_2 = stack_debug_dout;
-    end
-    else begin    // user data
-        out_2 = dm_debug_dout;
-    end
+
+    out_2 = screen_dout;
+
 end
 
 

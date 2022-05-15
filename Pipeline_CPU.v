@@ -22,8 +22,8 @@
 /*
     ================================  Pipeline_CPU module   ================================
     Author:         Wintermelon
-    Version:        1.2.0
-    Last Edit:      2022.5.14
+    Version:        1.2.5
+    Last Edit:      2022.5.15
 
     This is the cpu topmodule for Pipeline
 
@@ -48,6 +48,9 @@
         * MUX8
         * DEBUG
 */
+
+// ### Version 1.2.5 update ###
+// Big changes tp CPU, make it fix to Screen display
 
 // ### Version 1.2.0 update ###
 // Origin interrupt working, more than 1 buttons can be accepted
@@ -115,14 +118,14 @@ module Pipeline_CPU(
     input clk,      // 100Mhz 
     input rstn,
 
-    // CTRL_BUS
-    // cpu control form PDU
-    input pdu_rstn,
-    input [31:0] pdu_breakpoint,      
-    input pdu_run,             // PDU's signal to enable CPU clock
+    // // CTRL_BUS
+    // // cpu control form PDU
+    // input pdu_rstn,
+    // input [31:0] pdu_breakpoint,      
+    // input pdu_run,             // PDU's signal to enable CPU clock
 
     // cpu signials to PDU
-    output cpu_stop,           // CPU's signal when CPU clock stops
+    // output cpu_stop,           // CPU's signal when CPU clock stops
 
     // outside sugnals
     input butc,
@@ -131,18 +134,23 @@ module Pipeline_CPU(
     input butd,
     input butr,
 
-    // IO_BUS
-    output [15:0]  io_addr,	// I/O address
-    output [31:0]  io_dout,	// I/O data output
-    output  io_we,		    // I/O write enable
-    output  io_rd,		    // I/O read enable
-    input [31:0] io_din,	// I/O data input
+    // // IO_BUS
+    // output [15:0]  io_addr,	// I/O address
+    // output [31:0]  io_dout,	// I/O data output
+    // output  io_we,		    // I/O write enable
+    // output  io_rd,		    // I/O read enable
+    // input [31:0] io_din,	// I/O data input
 
-    // Debug_BUS
-    output [31:0] chk_if_pc, 	
-    output [31:0] chk_id_pc,
-    input [31:0] chk_addr,	// Debug address
-    output [31:0] chk_data  // Debug data
+    // // Debug_BUS
+    // output [31:0] chk_if_pc, 	
+    // output [31:0] chk_id_pc,
+    // input [31:0] chk_addr,	// Debug address
+    // output [31:0] chk_data,  // Debug data
+
+    // Screen
+    output [11:0] prgb,
+    output hs, 
+    output vs
 );
 
 // Below is some consts =============================================================================================================
@@ -151,11 +159,16 @@ reg one;
 
 // Below is the wires and regs declaration ==========================================================================================
 wire cpu_clk;
+wire pclk;
+    
+
+// Screen
+wire hen, ven;
 
 // Memorys
 wire [15:0] imu_addr;
 wire [31:0] imu_dout;
-wire [15:0] dmu_addr;
+wire [31:0] dmu_addr;
 wire [31:0] dmu_din, dmu_dout;
 wire dmu_we, dmu_rd;
 wire [2:0] dmu_mode;
@@ -245,8 +258,8 @@ wire if_id_clear, id_ex_clear, ex_mem_clear, mem_wb_clear;
 wire [19:0] imu_debug_addr;
 wire [31:0] imu_debug_dout;
 
-wire [19:0] dmu_debug_addr;
-wire [31:0] dmu_debug_dout;
+wire [14:0] raddr;
+wire [11:0] rdata;
 
 wire [4:0] rfi_debug_add;
 wire [31:0] rfi_debug_data;
@@ -270,7 +283,7 @@ assign rfi_sr1_add = id_is[19:15];
 assign rfi_sr2_add = id_is[24:20];
 assign rfi_dr_add = wb_dr[4:0];
 assign imu_addr = pc_out[15:0];
-assign dmu_addr = mem_dmu_addr[15:0];
+assign dmu_addr = mem_dmu_addr;
 assign dmu_din = mem_dmu_data;
 
 // Below is the CSR connection
@@ -394,16 +407,16 @@ DM_UNIT dmu(
     .dmu_din(dmu_din),
     .dmu_dout(dmu_dout),
 
-// IO_BUS
-    .io_addr(io_addr),	// I/O address
-    .io_dout(io_dout),	// I/O data output
-    .io_we(io_we),		    // I/O write enable
-    .io_rd(io_rd),		    // I/O read enable
-    .io_din(io_din),	// I/O data input
+// // IO_BUS
+//     .io_addr(io_addr),	// I/O address
+//     .io_dout(io_dout),	// I/O data output
+//     .io_we(io_we),		    // I/O write enable
+//     .io_rd(io_rd),		    // I/O read enable
+//     .io_din(io_din),	// I/O data input
 
 // DEBUG
-    .debug_addr(dmu_debug_addr),
-    .debug_dout(dmu_debug_dout),
+    .debug_addr(raddr),
+    .debug_dout(rdata),
 
     .dmu_error(dmu_error)
 );
@@ -586,14 +599,13 @@ CalculateUnit ccu(
 
 
 
-    
 
 // PCU
 Pipline_CTRL pcu(
     .clk(clk),    // 100Mhz
     .rstn(rstn),
 
-   // .pdu_clk(pdu_clk),
+    // FH part
     
     .if_is(imu_dout), 
     .id_is(id_is), 
@@ -608,9 +620,25 @@ Pipline_CTRL pcu(
     .wb_pc(wb_pc),
 
     .ex_npc_mux_sel(ex_npc_mux_sel),
+    
+    // CPU error information
     .error(cpu_error),
     .ebreak(ebreak),
-    .pdu_breakpoint(pdu_breakpoint),
+
+    // outside signals
+    .butc(db_butc),
+    .butu(db_butu),
+    .butl(db_butl),
+    .butd(db_butd),
+    .butr(db_butr),
+
+    // Debug only
+    // .butc(butc),
+    // .butu(butu),
+    // .butl(butl),
+    // .butd(butd),
+    // .butr(butr),
+
 
     // CSR
     .csr_din(csr_din),
@@ -624,20 +652,9 @@ Pipline_CTRL pcu(
     .npc_mux_sel(npc_mux_sel_pcu),
     .pc_dout(pc_pcu),
 
-    // outside signals
-    // .butc(db_butc),
-    // .butu(db_butu),
-    // .butl(db_butl),
-    // .butd(db_butd),
-    // .butr(db_butr),
+    .clk_50(pclk),
 
-    .butc(butc),
-    .butu(butu),
-    .butl(butl),
-    .butd(butd),
-    .butr(butr),
-
-
+    // CPU pipeline stop and clear
     .if_id_wen(if_id_wen), 
     .id_ex_wen(id_ex_wen), 
     .ex_mem_wen(ex_mem_wen), 
@@ -649,14 +666,12 @@ Pipline_CTRL pcu(
     .ex_mem_clear(ex_mem_clear), 
     .mem_wb_clear(mem_wb_clear),
     
-
+    // FH mux
     .b_sr1_mux_sel_fh(b_sr1_mux_sel_fh),
     .b_sr2_mux_sel_fh(b_sr2_mux_sel_fh),
     .sr1_mux_sel_fh(sr1_mux_sel_fh),
     .sr2_mux_sel_fh(sr2_mux_sel_fh),
     .dm_sr2_mux_sel_fh(dm_sr2_mux_sel_fh),
-
-    .cpu_stop(cpu_stop),
 
     // Debug
     .csr_debug_addr(csr_debug_addr),
@@ -827,111 +842,136 @@ Debouncer db_butc_m(
     .deb_but(db_butc)
 );
 
+// Screen
+
+VDS vds(
+    .hen(hen),
+    .ven(ven),
+    .pclk(pclk),
+    .rst(rstn),
+    .rdata(rdata),
+
+    .raddr(raddr),
+    .prgb(prgb)
+);
+
+VDT vdt(
+    .pclk(pclk),
+    .rst(rstn),
+
+    .hen(hen),
+    .ven(ven),
+    .hs(hs),
+    .vs(vs)
+);
+
+
+
 // Debuger
 
-DEBUG debug(
-    // Debug_BUS
-    .chk_addr(chk_addr),    // debug address
-    .chk_data(chk_data),    // debug data
+// DEBUG debug(
+//     // Debug_BUS
+//     .chk_addr(chk_addr),    // debug address
+//     .chk_data(chk_data),    // debug data
 
-    // DataPath state
-//================================== IF PART ==================================
-    .if_pc(pc_in),
-    .if_is(pc_out),
-    .if_npc(imu_dout),
-//================================== ID PART ==================================
-    .id_pc(id_pc),
-    .id_is(id_is),
-    .id_sr1_addr(rfi_sr1_add),
-    .id_sr1_dout(rfi_sr1_data),
-    .id_sr2_addr(rfi_sr2_add),
-    .id_sr2_dout(rfi_sr2_data),
-    .id_dr_addr(rfi_dr_add),
-    .id_dr_din(rfi_dr_data),
-    .id_rfi_we(rfi_wen),
-    .id_ctrl_jumpctrl(jump_ctrl),
-    .id_is_dr(id_rf_dr),
-    .id_b_sr1_mux_sel(b_sr1_mux_sel),
-    .id_b_sr2_mux_sel(b_sr2_mux_sel),
-    .id_b_sr1(b_sr1_mux_out),
-    .id_b_sr2(b_sr2_mux_out),
-    .id_npc_mux_sel(npc_mux_sel),
-    .id_pc_offset(pc_offset),
-    .id_reg_offset(reg_offset),
-    .id_imm(id_imm),
-//================================== EX PART ==================================
-    .ex_pc(ex_pc),
-    .ex_is(ex_is),
-    .ex_sr1(ex_sr1),
-    .ex_sr2(ex_sr2),
-    .ex_ccu_ex(ccu_ex),
-    .ex_ccu_mem(ccu_mem),
-    .ex_dmu_mem(dmu_mem),
-    .ex_npc_mem(npc_mem),
-    .ex_sr1_mux_sel_cu(ex_sr1_mux_sel_cu),
-    .ex_sr2_mux_sel_cu(ex_sr2_mux_sel_cu),
-    .ex_sr1_mux_sel_fh(ex_sr1_mux_sel_fh),
-    .ex_sr2_mux_sel_fh(ex_sr2_mux_sel_fh),
-    .ex_dm_sr2_mux_sel(dm_sr2_mux_sel),
-    .ex_sr1_mux_sel(sr1_mux_sel),
-    .ex_sr2_mux_sel(sr2_mux_sel),
-    .ex_ccu_number1(sr1_mux_out),
-    .ex_ccu_number2(sr2_mux_out),
-    .ex_ccu_mode(ccu_mode),
-    .ex_ccu_fast_ans(ccu_fast_ans),
-    .ex_ccu_error(ccu_error),
-//================================== MEM PART ==================================
-    .mem_pc(mem_pc),
-    .mem_is(mem_is),
-    .mem_dmu_addr(dmu_addr),
-    .mem_dmu_din(dmu_din),
-    .mem_dmu_dout(dmu_dout),
-    .mem_dmu_rd(dmu_rd),
-    .mem_dmu_we(dmu_we),
-    .mem_ccu_fast_ans(mem_ccu_fast_ans),
-    .mem_ccu_slow_ans(ccu_slow_ans),
-    .mem_ccu_ans_mux_sel(ccu_ans_mux_sel),
-    .mem_ccu_ans(ccu_ans),
-//================================== WB PART ==================================
-    .wb_pc(wb_pc),
-    .wb_is(wb_is),
-    .wb_ccu_ans(wb_ccu_ans),
-    .wb_dmu_dout(wb_dmu_dout),
-    .wb_rfi_mux_sel(rf_mux_sel),
-    .wb_rfi_dr_addr(rfi_dr_add),
-    .wb_rfi_dr_din(rfi_dr_data),
-    .wb_rfi_we(rfi_wen),
-//================================== PCU ==================================
-    .pc_wen(pc_wen),
-    .if_id_wen(if_id_wen),
-    .id_ex_wen(id_ex_wen),
-    .ex_mem_wen(ex_mem_wen),
-    .mem_wb_wen(mem_wb_wen),
-    .if_id_clear(if_id_clear),
-    .id_ex_clear(id_ex_clear),
-    .ex_mem_clear(ex_mem_clear),
-    .mem_wb_clear(mem_wb_clear),
-    .sr1_mux_sel_fh(sr1_mux_sel_fh),
-    .sr2_mux_sel_fh(sr2_mux_sel_fh),
-    .b_sr1_mux_sel_fh(b_sr1_mux_sel_fh),
-    .b_sr2_mux_sel_fh(b_sr2_mux_sel_fh),
-    .dm_sr2_mux_sel_fh(dm_sr2_mux_sel_fh),
+//     // DataPath state
+// //================================== IF PART ==================================
+//     .if_pc(pc_in),
+//     .if_is(pc_out),
+//     .if_npc(imu_dout),
+// //================================== ID PART ==================================
+//     .id_pc(id_pc),
+//     .id_is(id_is),
+//     .id_sr1_addr(rfi_sr1_add),
+//     .id_sr1_dout(rfi_sr1_data),
+//     .id_sr2_addr(rfi_sr2_add),
+//     .id_sr2_dout(rfi_sr2_data),
+//     .id_dr_addr(rfi_dr_add),
+//     .id_dr_din(rfi_dr_data),
+//     .id_rfi_we(rfi_wen),
+//     .id_ctrl_jumpctrl(jump_ctrl),
+//     .id_is_dr(id_rf_dr),
+//     .id_b_sr1_mux_sel(b_sr1_mux_sel),
+//     .id_b_sr2_mux_sel(b_sr2_mux_sel),
+//     .id_b_sr1(b_sr1_mux_out),
+//     .id_b_sr2(b_sr2_mux_out),
+//     .id_npc_mux_sel(npc_mux_sel),
+//     .id_pc_offset(pc_offset),
+//     .id_reg_offset(reg_offset),
+//     .id_imm(id_imm),
+// //================================== EX PART ==================================
+//     .ex_pc(ex_pc),
+//     .ex_is(ex_is),
+//     .ex_sr1(ex_sr1),
+//     .ex_sr2(ex_sr2),
+//     .ex_ccu_ex(ccu_ex),
+//     .ex_ccu_mem(ccu_mem),
+//     .ex_dmu_mem(dmu_mem),
+//     .ex_npc_mem(npc_mem),
+//     .ex_sr1_mux_sel_cu(ex_sr1_mux_sel_cu),
+//     .ex_sr2_mux_sel_cu(ex_sr2_mux_sel_cu),
+//     .ex_sr1_mux_sel_fh(ex_sr1_mux_sel_fh),
+//     .ex_sr2_mux_sel_fh(ex_sr2_mux_sel_fh),
+//     .ex_dm_sr2_mux_sel(dm_sr2_mux_sel),
+//     .ex_sr1_mux_sel(sr1_mux_sel),
+//     .ex_sr2_mux_sel(sr2_mux_sel),
+//     .ex_ccu_number1(sr1_mux_out),
+//     .ex_ccu_number2(sr2_mux_out),
+//     .ex_ccu_mode(ccu_mode),
+//     .ex_ccu_fast_ans(ccu_fast_ans),
+//     .ex_ccu_error(ccu_error),
+// //================================== MEM PART ==================================
+//     .mem_pc(mem_pc),
+//     .mem_is(mem_is),
+//     .mem_dmu_addr(dmu_addr),
+//     .mem_dmu_din(dmu_din),
+//     .mem_dmu_dout(dmu_dout),
+//     .mem_dmu_rd(dmu_rd),
+//     .mem_dmu_we(dmu_we),
+//     .mem_ccu_fast_ans(mem_ccu_fast_ans),
+//     .mem_ccu_slow_ans(ccu_slow_ans),
+//     .mem_ccu_ans_mux_sel(ccu_ans_mux_sel),
+//     .mem_ccu_ans(ccu_ans),
+// //================================== WB PART ==================================
+//     .wb_pc(wb_pc),
+//     .wb_is(wb_is),
+//     .wb_ccu_ans(wb_ccu_ans),
+//     .wb_dmu_dout(wb_dmu_dout),
+//     .wb_rfi_mux_sel(rf_mux_sel),
+//     .wb_rfi_dr_addr(rfi_dr_add),
+//     .wb_rfi_dr_din(rfi_dr_data),
+//     .wb_rfi_we(rfi_wen),
+// //================================== PCU ==================================
+//     .pc_wen(pc_wen),
+//     .if_id_wen(if_id_wen),
+//     .id_ex_wen(id_ex_wen),
+//     .ex_mem_wen(ex_mem_wen),
+//     .mem_wb_wen(mem_wb_wen),
+//     .if_id_clear(if_id_clear),
+//     .id_ex_clear(id_ex_clear),
+//     .ex_mem_clear(ex_mem_clear),
+//     .mem_wb_clear(mem_wb_clear),
+//     .sr1_mux_sel_fh(sr1_mux_sel_fh),
+//     .sr2_mux_sel_fh(sr2_mux_sel_fh),
+//     .b_sr1_mux_sel_fh(b_sr1_mux_sel_fh),
+//     .b_sr2_mux_sel_fh(b_sr2_mux_sel_fh),
+//     .dm_sr2_mux_sel_fh(dm_sr2_mux_sel_fh),
 
-    // RF data
-    .rf_debug_addr(rfi_debug_add),
-    .rf_debug_data(rfi_debug_data),
+//     // RF data
+//     .rf_debug_addr(rfi_debug_add),
+//     .rf_debug_data(rfi_debug_data),
 
-    // IMU data
-    .imu_debug_addr(imu_debug_addr),
-    .imu_debug_data(imu_debug_dout),
+//     // IMU data
+//     .imu_debug_addr(imu_debug_addr),
+//     .imu_debug_data(imu_debug_dout),
 
-    // DMU data
-    .dmu_debug_addr(dmu_debug_addr),
-    .dmu_debug_data(dmu_debug_dout),
+//     // DMU data
+//     .raddr(),
+//     .dmu_debug_data(),
 
-    // CSR data
-    .csr_debug_addr(csr_debug_addr),
-    .csr_debug_data(csr_debug_data)
-);
+//     // CSR data
+//     .csr_debug_addr(csr_debug_addr),
+//     .csr_debug_data(csr_debug_data)
+// );
 
 endmodule

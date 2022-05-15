@@ -37,7 +37,12 @@ module topmodule(
     output [15:0] led,	    //led15-0
     output [7:0] an,		//an7-0
     output [6:0] seg,		//ca-cg 
-    output [2:0] led17 	    //led17
+    output [2:0] led17, 	    //led17
+
+    // Screen
+    output [11:0] prgb,
+    output hs,
+    output vs
 );
 
 reg one;
@@ -62,43 +67,43 @@ wire cpu_stop;
 wire pdu_rstn;
 wire [31:0] pdu_breakpoint;
 
-// PDU
-PDU_v2 pdu(
-    .clk(clk),	//clk100mhz
-    .rstn(rstn),
+// // PDU
+// PDU_v2 pdu(
+//     .clk(clk),	//clk100mhz
+//     .rstn(rstn),
 
-    .butu(butu),        //btnu
-    .butd(butd),	    //btnd
-    .butr(butr),	        //btnr
-    .butc(butc),	    //btnc
-    .butl(butl),	        //btnl
-    .sw(sw),	        //sw15-0
+//     .butu(butu),        //btnu
+//     .butd(butd),	    //btnd
+//     .butr(butr),	        //btnr
+//     .butc(butc),	    //btnc
+//     .butl(butl),	        //btnl
+//     .sw(sw),	        //sw15-0
 
-    .stop(led16r), 		//led16r
-    .led(led),	        //led15-0
-    .an(an),		    //an7-0
-    .seg(seg),		    //ca-cg 
-    .seg_sel(led17), 	//led17
+//     .stop(led16r), 		//led16r
+//     .led(led),	        //led15-0
+//     .an(an),		    //an7-0
+//     .seg(seg),		    //ca-cg 
+//     .seg_sel(led17), 	//led17
 
-    // CTRL_BUS
-    .pdu_rstn(pdu_rstn),
-    .pdu_breakpoint(pdu_breakpoint),      
-    .pdu_run(pdu_run),           
-    .cpu_stop(cpu_stop),           
+//     // CTRL_BUS
+//     .pdu_rstn(pdu_rstn),
+//     .pdu_breakpoint(pdu_breakpoint),      
+//     .pdu_run(pdu_run),           
+//     .cpu_stop(cpu_stop),           
 
-    //IO_BUS
-    .io_addr(io_addr),
-    .io_dout(io_dout),
-    .io_we(io_we),		
-    .io_rd(io_rd),	
-    .io_din(io_din),	
+//     //IO_BUS
+//     .io_addr(io_addr),
+//     .io_dout(io_dout),
+//     .io_we(io_we),		
+//     .io_rd(io_rd),	
+//     .io_din(io_din),	
 
-    //Debug_BUS
-    .chk_if_pc(if_pc), 	
-    .chk_id_pc(id_pc), 	    
-    .chk_addr(chk_addr),	
-    .chk_data(chk_data)    
-);
+//     //Debug_BUS
+//     .chk_if_pc(if_pc), 	
+//     .chk_id_pc(id_pc), 	    
+//     .chk_addr(chk_addr),	
+//     .chk_data(chk_data)    
+// );
 
 
 Pipeline_CPU cpu(
@@ -107,9 +112,9 @@ Pipeline_CPU cpu(
     .rstn(1'b1),
 
     // CTRL_BUS
-    .pdu_rstn(pdu_rstn),
-    .pdu_breakpoint(pdu_breakpoint),      
-    .pdu_run(pdu_run),           
+    .pdu_rstn(1'b1),
+    .pdu_breakpoint(32'hFFFFFFFF),      
+    .pdu_run(1'b0),           
     .cpu_stop(cpu_stop),    
 
     // IO_BUS
@@ -117,12 +122,12 @@ Pipeline_CPU cpu(
     .io_dout(io_dout),	// I/O data output
     .io_we(io_we),		    // I/O write enable
     .io_rd(io_rd),		    // I/O read enable
-    .io_din(io_din),	// I/O data input
+    .io_din(32'b0),	// I/O data input
 
     // Debug_BUS
     .chk_if_pc(if_pc), 	
     .chk_id_pc(id_pc),
-    .chk_addr(chk_addr),	// Debug address
+    .chk_addr(32'b0),	// Debug address
     .chk_data(chk_data),  // Debug data
 
     // outside signals
@@ -130,6 +135,14 @@ Pipeline_CPU cpu(
     .butu(butu),
     .butl(butl),
     .butd(butd),
-    .butr(butr)
+    .butr(butr),
+
+    .prgb(prgb),
+    .hs(hs), 
+    .vs(vs)
 );
+
+
+
+
 endmodule
