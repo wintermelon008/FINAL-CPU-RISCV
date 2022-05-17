@@ -66,6 +66,7 @@ module ID_EX_REG(
     input [7:0] ctrl_wb_din,
     input [31:0] ccu_ex_din,
     input [31:0] ccu_mem_din,
+    input [31:0] ccu_wb_din,
     input [31:0] npc_mem_din,
     input [31:0] dm_mem_din,
     input [23:0] mux_sel_din,
@@ -82,6 +83,7 @@ module ID_EX_REG(
     output [7:0] ctrl_wb_dout,
     output [31:0] ccu_ex_dout,
     output [31:0] ccu_mem_dout,
+    output [31:0] ccu_wb_dout,
     output [31:0] npc_mem_dout,
     output [31:0] dm_mem_dout,
     output [23:0] mux_sel_dout
@@ -183,6 +185,14 @@ REG #(32) id_ex_ccu_ex(
 REG #(32) id_ex_ccu_mem(
     .din(ccu_mem_din & ({32{~clear}})),
     .dout(ccu_mem_dout),
+    .clk(clk),
+    .rstn(rstn),
+    .wen(one)
+);
+
+REG #(32) id_ex_ccu_wb(
+    .din(ccu_wb_din & ({32{~clear}})),
+    .dout(ccu_wb_dout),
     .clk(clk),
     .rstn(rstn),
     .wen(one)

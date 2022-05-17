@@ -85,6 +85,7 @@ module Pipline_CTRL(
     output [2:0] sr1_mux_sel_fh,
     output [2:0] sr2_mux_sel_fh,
     output [2:0] dm_sr2_mux_sel_fh,
+    output [2:0] csr_mux_sel_fh,
 
 
     // Debug
@@ -269,17 +270,17 @@ always @(*) begin
             32'h0000: bs = csr_din;
         endcase
     end
-    else begin
-        case(error)
-            ERROR_DIV_BY_ZERO: begin
-                // Prorgam starts at 0xF008
-                mtevc = 32'hF008;
-                mcause = Divide_By_Zero;
-                mepc = id_pc;
-                mtval = id_pc;      
-            end
-        endcase
-    end
+    // else begin
+    //     case(error)
+    //         ERROR_DIV_BY_ZERO: begin
+    //             // Prorgam starts at 0xF008
+    //             mtevc = 32'hF008;
+    //             mcause = Divide_By_Zero;
+    //             mepc = id_pc;
+    //             mtval = id_pc;      
+    //         end
+    //     endcase
+    // end
 end
 
 // Below is the PCU state machine
@@ -418,8 +419,8 @@ always @(*) begin
     end
     else begin
         case (clk_cs) 
-            CLOCK_RUN: begin
-                if (ebreak || next_state == Reload_Part1 || interrupt || button_sig) begin
+            CLOCK_RUN: begin 
+                if (ebreak || next_state == Reload_Part1 || button_sig) begin
                     // Breakpoint
                     clk_ns = CLOCK_STOP;
                 end
@@ -539,6 +540,7 @@ Forwarding_Hazard fh(
     .sr1_mux_sel_fh(sr1_mux_sel_fh),
     .sr2_mux_sel_fh(sr2_mux_sel_fh),
     .dm_sr2_mux_sel_fh(dm_sr2_mux_sel_fh),
+    .csr_mux_sel_fh(csr_mux_sel_fh),
 
     // hazard -- dealing with cpu's stop
     .pc_en(pc_wen_fh),

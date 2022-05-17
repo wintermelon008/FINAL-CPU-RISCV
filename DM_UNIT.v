@@ -33,6 +33,7 @@
 module DM_UNIT(
 // SIGNALS
     input clk,
+    input slow_clk,
     input rd,   // read enable
     input we,   // write enable
     input [2:0] mode,   // dmu mode
@@ -49,10 +50,7 @@ module DM_UNIT(
     output  io_rd,		    // I/O read enable
     input [31:0] io_din,	// I/O data input
 
-// DEBUG
-    // input [19:0] debug_addr,
-    // output [31:0] debug_dout,
- 
+// Screen
     input [14:0] screen_addr,
     output [11:0] screen_data,
 
@@ -65,10 +63,10 @@ wire dm_wen;
 wire dmu_dout_mux_sel;
 
 
-assign io_we = we;
-assign io_rd = rd;
-assign io_addr = dmu_addr;
-assign io_dout = dmu_din;
+// assign io_we = we;
+// assign io_rd = rd;
+// assign io_addr = dmu_addr;
+// assign io_dout = dmu_din;
 assign dm_wen = we;
 assign dm_addr = dmu_addr;
 assign dm_din = dmu_din;
@@ -79,6 +77,8 @@ assign dmu_dout_mux_sel = 1'b0;
 
 Data_MEM dm (
     .clk(clk),
+    .slow_clk(slow_clk),
+    
     .add_1(dm_addr),
     .data_1(dm_din),
     .we_1(dm_wen),

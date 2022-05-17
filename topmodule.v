@@ -111,25 +111,6 @@ Pipeline_CPU cpu(
     .clk(clk), 
     .rstn(1'b1),
 
-    // CTRL_BUS
-    .pdu_rstn(1'b1),
-    .pdu_breakpoint(32'hFFFFFFFF),      
-    .pdu_run(1'b0),           
-    .cpu_stop(cpu_stop),    
-
-    // IO_BUS
-    .io_addr(io_addr),	// I/O address
-    .io_dout(io_dout),	// I/O data output
-    .io_we(io_we),		    // I/O write enable
-    .io_rd(io_rd),		    // I/O read enable
-    .io_din(32'b0),	// I/O data input
-
-    // Debug_BUS
-    .chk_if_pc(if_pc), 	
-    .chk_id_pc(id_pc),
-    .chk_addr(32'b0),	// Debug address
-    .chk_data(chk_data),  // Debug data
-
     // outside signals
     .butc(butc),
     .butu(butu),

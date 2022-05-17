@@ -22,8 +22,8 @@
 /*
     ================================  Pipeline_CPU module   ================================
     Author:         Wintermelon
-    Version:        1.2.5
-    Last Edit:      2022.5.15
+    Version:        1.2.8
+    Last Edit:      2022.5.7
 
     This is the cpu topmodule for Pipeline
 
@@ -48,6 +48,10 @@
         * MUX8
         * DEBUG
 */
+
+// ### Version 1.2.8 update ###
+// Add the FH for csr
+// Redesign the MEM instruction
 
 // ### Version 1.2.5 update ###
 // Big changes tp CPU, make it fix to Screen display
@@ -195,7 +199,7 @@ wire [31:0] id_rf_dr, id_is, id_pc, id_imm;
 wire [7:0] ex_ctrl_mem;
 wire [7:0] ex_ctrl_wb;
 wire [31:0] ex_is, ex_pc, ex_imm, ex_sr1, ex_sr2, ex_sr3, ex_dr;
-wire [31:0] ccu_ex, ccu_mem, dmu_mem, npc_mem;           // Forward
+wire [31:0] ccu_ex, ccu_mem, dmu_mem, npc_mem, ccu_wb;           // Forward
 wire [1:0] ex_npc_mux_sel;
 wire [31:0] ex_csr_dout;
 // MEM part
@@ -204,7 +208,7 @@ wire [31:0] mem_is, mem_pc, mem_ccu_fast_ans, mem_dmu_data, mem_dmu_addr, mem_dr
 // WB part
 wire [31:0] wb_is, wb_pc, wb_ccu_ans, wb_dmu_dout, wb_csr, wb_dr, wb_csr_dout;
 
-wire [18:0] sr_mux_dout;
+wire [23:0] sr_mux_dout;
 wire [14:0] ctrl_ex_dout;
 wire [7:0] ctrl_mem_dout;
 wire [7:0] ctrl_wb_dout;
@@ -225,6 +229,7 @@ wire [31:0] ccu_ans;
 wire [31:0] csr_radd, csr_wadd, csr_din, csr_dout;
 wire csr_wen;
 
+
 // ERROR
 wire [3:0] cpu_error;
 wire cu_error, imu_error, dmu_error;
@@ -241,14 +246,16 @@ wire [31:0] b_sr1_mux_out, b_sr2_mux_out;
 // sr-mux
 wire [2:0] sr1_mux_sel, sr2_mux_sel, sr3_mux_sel, dm_sr2_mux_sel;
 wire [31:0] sr1_mux_out, sr2_mux_out, sr3_mux_out, dm_sr2_mux_out;
-
+// csr-mux
+wire [31:0] csr_mux_out;
+wire [2:0] csr_mux_sel;
 // ccu-ans-mux
 wire ccu_ans_mux_sel;
 
 
 // FH
-wire [2:0] b_sr1_mux_sel_fh, b_sr2_mux_sel_fh, sr1_mux_sel_fh, sr2_mux_sel_fh, dm_sr2_mux_sel_fh;
-wire [2:0] ex_b_sr1_mux_sel_fh, ex_b_sr2_mux_sel_fh, ex_sr1_mux_sel_fh, ex_sr2_mux_sel_fh, ex_dm_sr2_mux_sel_fh;
+wire [2:0] b_sr1_mux_sel_fh, b_sr2_mux_sel_fh, sr1_mux_sel_fh, sr2_mux_sel_fh, dm_sr2_mux_sel_fh, csr_mux_sel_fh;
+wire [2:0] ex_b_sr1_mux_sel_fh, ex_b_sr2_mux_sel_fh, ex_sr1_mux_sel_fh, ex_sr2_mux_sel_fh, ex_dm_sr2_mux_sel_fh, ex_csr_mux_sel_fh;
 
 // Pipeline  unit
 wire if_id_wen, id_ex_wen, ex_mem_wen, mem_wb_wen;
@@ -328,13 +335,13 @@ assign csr_wadd = {{20'b0}, {wb_is[31:20]}};
 // CTRL-EX (0 + ebreak(1) + sr1mux(3), sr2mux(3), alumode(8))
 // CTRL-MEM (00 + dmu_mode(3) ccu_ans_mux(1) + dmwe(1), dmrd(1))
 // CTRL-WB (000 + csr_wen(1) + rfmux(3), rffwe(1))
-// MUX-SEL (0000000 + sr1(3), sr2(3), bsr1(3), bsr2(3), dsr2(3), npc(2))
+// MUX-SEL (0000 + csr(3) + sr1(3), sr2(3), bsr1(3), bsr2(3), dsr2(3), npc(2))
 
 // Below is the control signals connection (ID)
 assign id_ctrl_ex = {{1'b0}, {control_signals[34]}, {control_signals[2:0]}, {control_signals[5:3]}, {control_signals[21:14]}};
 assign id_ctrl_mem = {{2'b0}, {control_signals[26:24]}, {control_signals[11]}, {control_signals[27]}, {control_signals[28]}};
 assign id_ctrl_wb = {{3'b0}, {control_signals[29]}, {control_signals[8:6]}, {control_signals[22]}};
-assign id_mux_sel = {{7'b0}, {sr1_mux_sel_fh}, {sr2_mux_sel_fh}, {b_sr1_mux_sel_fh}, {b_sr2_mux_sel_fh}, {dm_sr2_mux_sel_fh}, {npc_mux_sel}};
+assign id_mux_sel = {{4'b0}, {csr_mux_sel_fh}, {sr1_mux_sel_fh}, {sr2_mux_sel_fh}, {b_sr1_mux_sel_fh}, {b_sr2_mux_sel_fh}, {dm_sr2_mux_sel_fh}, {npc_mux_sel}};
 assign jump_ctrl = control_signals[33:30];
 assign id_rf_dr = {{27'b0}, {id_is[11:7]}};
 
@@ -359,7 +366,8 @@ assign rfi_wen = ctrl_wb_dout[0];
 assign csr_wen = ctrl_wb_dout[4];
 
 // Below is the EX part mux-sel connection
-// MUX-SEL (0000000 + sr1(3), sr2(3), bsr1(3), bsr2(3), dsr2(3), npc(2))
+// MUX-SEL (0000 + csr(3) + sr1(3), sr2(3), bsr1(3), bsr2(3), dsr2(3), npc(2))
+assign ex_csr_mux_sel_fh = sr_mux_dout[19:17];
 assign ex_sr1_mux_sel_fh = sr_mux_dout[16:14];
 assign ex_sr2_mux_sel_fh = sr_mux_dout[13:11];
 assign ex_b_sr1_mux_sel_fh = sr_mux_dout[10:8];
@@ -370,13 +378,14 @@ assign ex_npc_mux_sel = sr_mux_dout[1:0];
 // Below is the MUX SEL connection
 assign b_sr1_mux_sel = ex_b_sr1_mux_sel_fh;
 assign b_sr2_mux_sel = ex_b_sr2_mux_sel_fh;
+assign csr_mux_sel = ex_csr_mux_sel_fh;
 assign dm_sr2_mux_sel = ex_dm_sr2_mux_sel_fh;
 assign npc_mux_sel = (npc_mux_sel_pcu == 1'b1) ? 2'b11 : npc_mux_sel_bcu; 
 assign if_pc = pc_out;
 
 // Below is the debug PC connection
-assign chk_if_pc = if_pc;
-assign chk_id_pc = id_pc;
+//assign chk_if_pc = if_pc;
+//assign chk_id_pc = id_pc;
 
 // Below is the sub-module declaration ==============================================================================================
 
@@ -398,6 +407,8 @@ IM_UNIT imu(
 DM_UNIT dmu(
 // SIGNALS
     .clk(cpu_clk),
+    .slow_clk(pclk),
+
     .rd(dmu_rd),   // read enable
     .we(dmu_we),   // write enable
     .mode(dmu_mode),
@@ -407,16 +418,9 @@ DM_UNIT dmu(
     .dmu_din(dmu_din),
     .dmu_dout(dmu_dout),
 
-// // IO_BUS
-//     .io_addr(io_addr),	// I/O address
-//     .io_dout(io_dout),	// I/O data output
-//     .io_we(io_we),		    // I/O write enable
-//     .io_rd(io_rd),		    // I/O read enable
-//     .io_din(io_din),	// I/O data input
-
 // DEBUG
-    .debug_addr(raddr),
-    .debug_dout(rdata),
+    .screen_addr(raddr),
+    .screen_data(rdata),
 
     .dmu_error(dmu_error)
 );
@@ -479,6 +483,7 @@ ID_EX_REG id_ex_reg(
     .ctrl_wb_din(id_ctrl_wb),     
     .ccu_ex_din(ccu_fast_ans),
     .ccu_mem_din(ccu_ans),
+    .ccu_wb_din(wb_ccu_ans),
     .npc_mem_din(mem_pc + 32'h4),
     .dm_mem_din(dmu_dout),
     .mux_sel_din(id_mux_sel),
@@ -495,6 +500,7 @@ ID_EX_REG id_ex_reg(
     .ctrl_wb_dout(ex_ctrl_wb),
     .ccu_ex_dout(ccu_ex),
     .ccu_mem_dout(ccu_mem),
+    .ccu_wb_dout(ccu_wb),
     .npc_mem_dout(npc_mem),
     .dm_mem_dout(dmu_mem),
     .mux_sel_dout(sr_mux_dout)
@@ -672,6 +678,7 @@ Pipline_CTRL pcu(
     .sr1_mux_sel_fh(sr1_mux_sel_fh),
     .sr2_mux_sel_fh(sr2_mux_sel_fh),
     .dm_sr2_mux_sel_fh(dm_sr2_mux_sel_fh),
+    .csr_mux_sel_fh(csr_mux_sel_fh),
 
     // Debug
     .csr_debug_addr(csr_debug_addr),
@@ -713,7 +720,7 @@ MUX4 #(32) npc_mux(
 MUX8 #(32) rf_mux(
     .data1(wb_ccu_ans),
     .data2(wb_pc + 32'h4),
-    .data3(wb_dmu_dout),
+    .data3(dmu_dout),
     .data4(wb_csr_dout),
     .data5(zero),
     .data6(zero),
@@ -753,7 +760,7 @@ MUX8 #(32) b_sr2_mux(
 MUX8 #(32) sr1_mux(
     .data1(ex_sr1),
     .data2(ex_pc),
-    .data3(ex_csr_dout),
+    .data3(csr_mux_out),
     .data4(zero),
     .data5(ccu_ex),
     .data6(ccu_mem),
@@ -766,7 +773,7 @@ MUX8 #(32) sr1_mux(
 MUX8 #(32) sr2_mux(
     .data1(ex_sr2),
     .data2(ex_imm),
-    .data3(ex_csr_dout),
+    .data3(csr_mux_out),
     .data4(zero),
     .data5(ccu_ex),
     .data6(ccu_mem),
@@ -776,6 +783,19 @@ MUX8 #(32) sr2_mux(
     .out(sr2_mux_out)
 );
 
+
+MUX8 #(32) csr_mux(
+    .data1(ex_csr_dout),
+    .data2(zero),
+    .data3(zero),
+    .data4(zero),
+    .data5(ccu_ex),
+    .data6(ccu_mem),
+    .data7(dmu_mem),
+    .data8(ccu_wb),
+    .sel(csr_mux_sel),
+    .out(csr_mux_out)
+);
 
 MUX8 #(32) dm_sr2_mux(
     .data1(ex_sr2),

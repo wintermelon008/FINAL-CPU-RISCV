@@ -42,6 +42,13 @@ parameter VFP = 37;
 reg [10:0] hcnt;
 reg [9:0] vcnt;
 
+initial begin
+    hcnt <= 'd856;
+    vcnt <= 'd637;
+    vs <= 'b0;
+    hs <= 'b0;
+end
+
 always@(posedge pclk) begin
     if (!rst) begin
         hcnt <= HEN + HFP;
