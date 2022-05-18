@@ -95,7 +95,7 @@ initial begin
 end
 
 REG #(32) id_ex_pc(
-    .din(pc_din & ({32{~clear}})),
+    .din(pc_din),
     .dout(pc_dout),
     .clk(clk),
     .rstn(rstn),
@@ -111,7 +111,7 @@ REG #(32) id_ex_is(
 );
 
 REG #(32) id_ex_imm(
-    .din(imm_din & ({32{~clear}})),
+    .din(imm_din),
     .dout(imm_dout),
     .clk(clk),
     .rstn(rstn),
@@ -143,7 +143,7 @@ REG #(8) id_ex_ctrl_wb(
 );
 
 REG #(32) id_ex_sr1(
-    .din(sr1_din & ({32{~clear}})),
+    .din(sr1_din),
     .dout(sr1_dout),
     .clk(clk),
     .rstn(rstn),
@@ -151,7 +151,7 @@ REG #(32) id_ex_sr1(
 );
 
 REG #(32) id_ex_sr2(
-    .din(sr2_din & ({32{~clear}})),
+    .din(sr2_din),
     .dout(sr2_dout),
     .clk(clk),
     .rstn(rstn),
@@ -159,7 +159,7 @@ REG #(32) id_ex_sr2(
 );
 
 REG #(32) id_ex_csr(
-    .din(csr_din & ({32{~clear}})),
+    .din(csr_din),
     .dout(csr_dout),
     .clk(clk),
     .rstn(rstn),
@@ -167,7 +167,7 @@ REG #(32) id_ex_csr(
 );
 
 REG #(32) id_ex_dr(
-    .din(dr_din & ({32{~clear}})),
+    .din(dr_din),
     .dout(dr_dout),
     .clk(clk),
     .rstn(rstn),
@@ -175,7 +175,7 @@ REG #(32) id_ex_dr(
 );
 
 REG #(32) id_ex_ccu_ex(
-    .din(ccu_ex_din & ({32{~clear}})),
+    .din(ccu_ex_din),
     .dout(ccu_ex_dout),
     .clk(clk),
     .rstn(rstn),
@@ -183,7 +183,7 @@ REG #(32) id_ex_ccu_ex(
 );
 
 REG #(32) id_ex_ccu_mem(
-    .din(ccu_mem_din & ({32{~clear}})),
+    .din(ccu_mem_din),
     .dout(ccu_mem_dout),
     .clk(clk),
     .rstn(rstn),
@@ -191,7 +191,7 @@ REG #(32) id_ex_ccu_mem(
 );
 
 REG #(32) id_ex_ccu_wb(
-    .din(ccu_wb_din & ({32{~clear}})),
+    .din(ccu_wb_din),
     .dout(ccu_wb_dout),
     .clk(clk),
     .rstn(rstn),
@@ -199,7 +199,7 @@ REG #(32) id_ex_ccu_wb(
 );
 
 REG #(32) id_ex_npc_mem(
-    .din(npc_mem_din & ({32{~clear}})),
+    .din(npc_mem_din),
     .dout(npc_mem_dout),
     .clk(clk),
     .rstn(rstn),
@@ -207,7 +207,7 @@ REG #(32) id_ex_npc_mem(
 );
 
 REG #(32) id_ex_dm_mem(
-    .din(dm_mem_din & ({32{~clear}})),
+    .din(dm_mem_din),
     .dout(dm_mem_dout),
     .clk(clk),
     .rstn(rstn),
@@ -215,7 +215,7 @@ REG #(32) id_ex_dm_mem(
 );
 
 REG #(24) id_ex_sr_mux(
-    .din(mux_sel_din & ({24{~clear}})),
+    .din(mux_sel_din),
     .dout(mux_sel_dout),
     .clk(clk),
     .rstn(rstn),

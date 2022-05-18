@@ -239,6 +239,9 @@ always @(instruction) begin
     sr2_mux_sel = SR2_ZERO;
     rf_wb_mux_sel = RF_ZERO;
     
+    rfi_we = 1'b0;
+    dm_we = 1'b0;
+    dm_rd = 1'b0;
 
     case (instruction[6:0])     // Check the opcode
         
@@ -671,6 +674,7 @@ always @(instruction) begin
                         sr1_mux_sel = SR1_REG;
                         sr2_mux_sel = SR2_CSR;
                         ccu_mode = OR;
+                        csr_we = 1'b0;
                     end
 
                     3'b011: begin

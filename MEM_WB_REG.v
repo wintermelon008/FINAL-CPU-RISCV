@@ -108,7 +108,7 @@ REG #(32) mem_wb_alu_ans(
 
 REG #(32) mem_wb_csr(
     .din(csr_din & ({32{~clear}})),
-    .dout(csrs_dout),
+    .dout(csr_dout),
     .clk(clk),
     .rstn(rstn),
     .wen(one)

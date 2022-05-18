@@ -235,7 +235,7 @@ always @(*) begin
         // User press the button
         mtevc = 32'hF010;
         mcause = User_Button;   
-        mepc = id_pc;   
+        mepc = (id_ex_clear && if_id_wen) ? if_pc : id_pc;   
         // none:0 up:1 down:2 left:3 right:4 reset(mid): 5
         if (butu)
             bs = 32'h1;

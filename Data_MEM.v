@@ -39,7 +39,8 @@ module Data_MEM(
 
     input [14:0] radd_2,    // debug
     input slow_clk,
-    output reg [11:0] out_1, out_2,
+    output reg [31:0] out_1, 
+    output reg [11:0] out_2,
 
     output reg dm_error
 );
@@ -143,7 +144,7 @@ end
 
 always @(*) begin
     dm_error = 1'b0;
-    dout = dm_dout;
+    dout = {{20'b0}, {dm_dout[11:0]}};
 end
 
 always @(*) begin

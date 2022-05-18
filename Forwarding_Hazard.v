@@ -138,20 +138,20 @@ end
 always @(*) begin
     csr_mux_sel_fh = NO_FORWARD;
 
-    // 1 id and ex
-    if (ex_is[6:0] == ControlStatus && id_is[6:0] == ControlStatus && id_is[31:20] == ex_is[31:20]) begin
-        csr_mux_sel_fh = ALU_EX;
-    end
+    // // 1 id and ex
+    // if (ex_is[6:0] == ControlStatus && id_is[6:0] == ControlStatus && id_is[31:20] == ex_is[31:20]) begin
+    //     csr_mux_sel_fh = ALU_EX;
+    // end
 
-    // 2 id and mem
-    else if (mem_is[6:0] == ControlStatus && id_is[6:0] == ControlStatus && id_is[31:20] == mem_is[31:20]) begin
-        csr_mux_sel_fh = ALU_MEM;
-    end
+    // // 2 id and mem
+    // else if (mem_is[6:0] == ControlStatus && id_is[6:0] == ControlStatus && id_is[31:20] == mem_is[31:20]) begin
+    //     csr_mux_sel_fh = ALU_MEM;
+    // end
 
-    // 3 id and wb
-    else if (wb_is[6:0] == ControlStatus && id_is[6:0] == ControlStatus && id_is[31:20] == wb_is[31:20]) begin
-        csr_mux_sel_fh = ALU_WB;
-    end
+    // // 3 id and wb
+    // else if (wb_is[6:0] == ControlStatus && id_is[6:0] == ControlStatus && id_is[31:20] == wb_is[31:20]) begin
+    //     csr_mux_sel_fh = ALU_WB;
+    // end
 end
 
 // Decide dm_sr2_mux_sel_fh
@@ -201,13 +201,11 @@ always @(*) begin
     // 2 id and mem
     else if (id_is[19:15] && id_is[19:15] == mem_is[11:7]) begin
         // id_sr = mem_dr != 0
-        // 2.1 lui/auipc/alu/lw/jal/jalr before beq
+        // 2.1 lui/auipc/alu/jal/jalr before beq
         if ((mem_is[6:0] == Loadupperimm || mem_is[6:0] == Adduppertopc || mem_is[6:0] == ArithmeticI || mem_is[6:0] == ArithmeticR ||
-             mem_is[6:0] == MemoryLoad || mem_is[6:0] == JumpandlinkI || mem_is[6:0] == JumpandlinkR) &&
+             mem_is[6:0] == JumpandlinkI || mem_is[6:0] == JumpandlinkR) &&
             (id_is[6:0] == Conditionjump)) begin
-                    if (mem_is[6:0] == MemoryLoad)
-                        b_sr1_mux_sel_fh = DM_MEM;
-                    else if (mem_is[6:0] == JumpandlinkI || mem_is[6:0] == JumpandlinkR)
+                    if (mem_is[6:0] == JumpandlinkI || mem_is[6:0] == JumpandlinkR)
                         b_sr1_mux_sel_fh = NPC;
                     else
                         b_sr1_mux_sel_fh = ALU_MEM;
@@ -230,13 +228,11 @@ always @(*) begin
     // 2 id and mem
     else if (id_is[24:20] && id_is[24:20] == mem_is[11:7]) begin
         // id_sr2 = mem_dr != 0
-        // 2.1 alu/auipc/lui/lw/jal/jalr before beq
+        // 2.1 alu/auipc/lui/jal/jalr before beq
         if ((mem_is[6:0] == Loadupperimm || mem_is[6:0] == Adduppertopc || mem_is[6:0] == ArithmeticI || mem_is[6:0] == ArithmeticR ||
-             mem_is[6:0] == MemoryLoad || mem_is[6:0] == JumpandlinkI || mem_is[6:0] == JumpandlinkR) &&
+             mem_is[6:0] == JumpandlinkI || mem_is[6:0] == JumpandlinkR) &&
             (id_is[6:0] == Conditionjump)) begin
-                    if (mem_is[6:0] == MemoryLoad)
-                        b_sr2_mux_sel_fh = DM_MEM;
-                    else if (mem_is[6:0] == JumpandlinkI || mem_is[6:0] == JumpandlinkR)
+                    if (mem_is[6:0] == JumpandlinkI || mem_is[6:0] == JumpandlinkR)
                         b_sr2_mux_sel_fh = NPC;
                     else
                         b_sr2_mux_sel_fh = ALU_MEM;
@@ -252,7 +248,7 @@ always @(*) begin
     id_ex_clear = 1'b0; // id_ex_control and instruction clear enable
 
     // B and J
-    if ((npc_mux_sel == 2'b01 && ex_is[6:0] == Conditionjump) || ex_is[6:0] == JumpandlinkI || ex_is[6:0] == JumpandlinkR || mem_is[6:0] == JumpandlinkR) begin
+    if ((npc_mux_sel == 2'b01 && ex_is[6:0] == Conditionjump) || (npc_mux_sel == 2'b11) || ex_is[6:0] == JumpandlinkI || ex_is[6:0] == JumpandlinkR || mem_is[6:0] == JumpandlinkR) begin
         // not pc+4
         id_ex_clear = 1'b1;
     end

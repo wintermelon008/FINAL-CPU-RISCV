@@ -23,7 +23,7 @@
     ================================  Pipeline_CPU module   ================================
     Author:         Wintermelon
     Version:        1.2.8
-    Last Edit:      2022.5.7
+    Last Edit:      2022.5.17
 
     This is the cpu topmodule for Pipeline
 
@@ -632,18 +632,18 @@ Pipline_CTRL pcu(
     .ebreak(ebreak),
 
     // outside signals
-    .butc(db_butc),
-    .butu(db_butu),
-    .butl(db_butl),
-    .butd(db_butd),
-    .butr(db_butr),
+    // .butc(db_butc),
+    // .butu(db_butu),
+    // .butl(db_butl),
+    // .butd(db_butd),
+    // .butr(db_butr),
 
     // Debug only
-    // .butc(butc),
-    // .butu(butu),
-    // .butl(butl),
-    // .butd(butd),
-    // .butr(butr),
+    .butc(butc),
+    .butu(butu),
+    .butl(butl),
+    .butd(butd),
+    .butr(butr),
 
 
     // CSR

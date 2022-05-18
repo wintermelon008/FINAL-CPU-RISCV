@@ -31,7 +31,6 @@
 
 module ALU (
     input [31:0] num1, num2,                      // The source data
-    input [31:0] mul_din,                         // The answer from multiple part
     input [7:0] mode_sel,                         // ALU working mode sel
     output reg [31:0] ans,                        // The answer
     output reg error                              // The error signal     
