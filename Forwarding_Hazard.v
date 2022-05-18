@@ -138,20 +138,20 @@ end
 always @(*) begin
     csr_mux_sel_fh = NO_FORWARD;
 
-    // // 1 id and ex
-    // if (ex_is[6:0] == ControlStatus && id_is[6:0] == ControlStatus && id_is[31:20] == ex_is[31:20]) begin
-    //     csr_mux_sel_fh = ALU_EX;
-    // end
+    // 1 id and ex
+    if (ex_is[6:0] == ControlStatus && id_is[6:0] == ControlStatus && id_is[31:20] == ex_is[31:20]) begin
+        csr_mux_sel_fh = ALU_EX;
+    end
 
-    // // 2 id and mem
-    // else if (mem_is[6:0] == ControlStatus && id_is[6:0] == ControlStatus && id_is[31:20] == mem_is[31:20]) begin
-    //     csr_mux_sel_fh = ALU_MEM;
-    // end
+    // 2 id and mem
+    else if (mem_is[6:0] == ControlStatus && id_is[6:0] == ControlStatus && id_is[31:20] == mem_is[31:20]) begin
+        csr_mux_sel_fh = ALU_MEM;
+    end
 
-    // // 3 id and wb
-    // else if (wb_is[6:0] == ControlStatus && id_is[6:0] == ControlStatus && id_is[31:20] == wb_is[31:20]) begin
-    //     csr_mux_sel_fh = ALU_WB;
-    // end
+    // 3 id and wb
+    else if (wb_is[6:0] == ControlStatus && id_is[6:0] == ControlStatus && id_is[31:20] == wb_is[31:20]) begin
+        csr_mux_sel_fh = ALU_WB;
+    end
 end
 
 // Decide dm_sr2_mux_sel_fh
@@ -248,7 +248,9 @@ always @(*) begin
     id_ex_clear = 1'b0; // id_ex_control and instruction clear enable
 
     // B and J
-    if ((npc_mux_sel == 2'b01 && ex_is[6:0] == Conditionjump) || (npc_mux_sel == 2'b11) || ex_is[6:0] == JumpandlinkI || ex_is[6:0] == JumpandlinkR || mem_is[6:0] == JumpandlinkR) begin
+    if ((npc_mux_sel == 2'b01 && ex_is[6:0] == Conditionjump) || (npc_mux_sel == 2'b11 && ex_is[6:0] == Conditionjump) ||
+        // (npc_mux_sel == 2'b11)  --- 5.18 19:42
+         ex_is[6:0] == JumpandlinkI || ex_is[6:0] == JumpandlinkR || mem_is[6:0] == JumpandlinkR) begin
         // not pc+4
         id_ex_clear = 1'b1;
     end
