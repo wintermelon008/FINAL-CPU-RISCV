@@ -36,6 +36,7 @@ module Data_MEM(
     input [31:0] data_1,
     input we_1,
     input [2:0] mode,
+    input [2:0] screen_mux_sel, 
 
     input [14:0] radd_2,    // debug
     input slow_clk,
@@ -55,9 +56,11 @@ module Data_MEM(
 
 
 wire dm_we;
-wire [31:0] dm_din;
-wire [31:0] dm_dout, stack_dout;
-wire [31:0] screen_dout;
+wire [11:0] dm_din, dm_dout;
+wire [11:0] dm_dout_maze_map, dm_dout_finish_pic;
+wire dm_we_maze_map, dm_we_finish_pic;
+wire [11:0] screen_dout;
+wire [11:0] screen_dout_maze_map, screen_dout_finish_pic;
 wire [14:0] dm_addr, screen_addr;
 
 reg [31:0] din, dout;
@@ -67,20 +70,64 @@ assign dm_addr = add_1[14:0];
 assign dm_din = din[11:0];
 assign screen_addr = radd_2[14:0];
 
+assign dm_we_maze_map = (screen_mux_sel == 3'd1) ? dm_we : 1'b0;
+assign dm_we_finish_pic = (screen_mux_sel == 3'd2) ? dm_we : 1'b0; 
 
-screen_data dm_block (
+
+screen_data maze_map (
     .clka(clk),    // input wire clka
-    .wea(dm_we),      // input wire [0 : 0] wea
+    .wea(dm_we_maze_map),      // input wire [0 : 0] wea
     .addra(dm_addr),  // input wire [14 : 0] addra
     .dina(dm_din),    // input wire [11 : 0] dina
-    .douta(dm_dout),
+    .douta(dm_dout_maze_map),
 
     .clkb(slow_clk),    // input wire clkb
     .enb(1'b1),
     .addrb(screen_addr),  // input wire [14 : 0] addrb
     .web(1'b0),
     .dinb(12'b0),
-    .doutb(screen_dout)  // output wire [11 : 0] doutb
+    .doutb(screen_dout_maze_map)  // output wire [11 : 0] doutb
+);
+
+success_data finish_pic (
+    .clka(clk),    // input wire clka
+    .wea(dm_we_finish_pic),      // input wire [0 : 0] wea
+    .addra(dm_addr),  // input wire [14 : 0] addra
+    .dina(dm_din),    // input wire [11 : 0] dina
+    .douta(dm_dout_finish_pic),
+
+    .clkb(slow_clk),    // input wire clkb
+    .enb(1'b1),
+    .addrb(screen_addr),  // input wire [14 : 0] addrb
+    .web(1'b0),
+    .dinb(12'b0),
+    .doutb(screen_dout_finish_pic)  // output wire [11 : 0] doutb
+);
+
+MUX8 #(12) dm_mux(
+    .data1(12'h0),
+    .data2(dm_dout_maze_map),
+    .data3(dm_dout_finish_pic),
+    .data4(12'h0),
+    .data5(12'h0),
+    .data6(12'h0),
+    .data7(12'h0),
+    .data8(12'h0),
+    .sel(screen_mux_sel),
+    .out(dm_dout)
+);
+
+MUX8 #(12) screen_mux(
+    .data1(12'h0),
+    .data2(screen_dout_maze_map),
+    .data3(screen_dout_finish_pic),
+    .data4(12'h0),
+    .data5(12'h0),
+    .data6(12'h0),
+    .data7(12'h0),
+    .data8(12'h0),
+    .sel(screen_mux_sel),
+    .out(screen_dout)
 );
 
 
