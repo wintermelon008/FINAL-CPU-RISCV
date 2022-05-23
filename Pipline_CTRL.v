@@ -62,6 +62,7 @@ module Pipline_CTRL(
     input [31:0] csr_radd,
     input [31:0] csr_wadd,
     input csr_wen,
+    output [31:0] csr_map_mux_sel,
 
     // CPU PC control
     output reg [31:0] pc_dout,
@@ -167,8 +168,8 @@ wire button_sig;    // The flag when a button has been pressed
 
 reg [3:0] current_state, next_state;
 reg [1:0] clk_cs, clk_ns;
-reg [31:0] mtevc, mtval, mepc, mcause, mipd, bs;
-wire [31:0] mtevc_dout, mtval_dout, mepc_dout, mcause_dout, mipd_dout, bs_dout;
+reg [31:0] mtevc, mtval, mepc, mcause, mipd, bs, map;
+wire [31:0] mtevc_dout, mtval_dout, mepc_dout, mcause_dout, mipd_dout, bs_dout, map_dout;
 
 
 reg [31:0] cpu_clk_conter;
@@ -179,7 +180,7 @@ reg pcu_run;            // Starts the interrupt program
 
 // Below is the wires connection
 assign cpu_clk = slow_clk & cpu_clk_en;
-
+assign csr_map_mux_sel = map_dout;
 
 assign interrupt = (error == NO_ERROR) ? 1'b0 : 1'b1;
 assign ret = (csr_din == 32'h1 && csr_wadd == 32'h0100) ? 1'b1 : 1'b0;
@@ -192,6 +193,22 @@ initial begin
     clk_cs = CLOCK_RUN;
     cpu_clk_conter <= 'b0;
     current_state <= Wait;
+    
+    mtevc = 'b0;
+    mcause = 'b0;
+    mepc = 'b0;
+    mtval = 'b0;      
+    mipd = 'b0;
+    bs = 'b0;
+    map = 'd1;
+
+    pcu_csr_wen = 1'b1;
+    pc_wen_pcu = 1'b0;
+    pcu_run = 1'b1;
+    pc_dout = 32'h0;
+    npc_mux_sel = 1'b0;
+    if_id_clear_pcu = 1'b0;
+    id_ex_clear_pcu = 1'b0;
 end
 
 
@@ -230,6 +247,7 @@ always @(*) begin
     mtval = mtval_dout;      
     mipd = mipd_dout;
     bs = bs_dout;
+    map = map_dout;
 
     if (button_sig) begin
         // User press the button
@@ -268,6 +286,7 @@ always @(*) begin
             32'h0343: mtval = csr_din;
             32'h0100: mipd = csr_din;
             32'h0000: bs = csr_din;
+            32'h0001: map = csr_din;
         endcase
     end
     // else begin
@@ -518,6 +537,9 @@ CSR_UNIT csr(
 
     .bs_din(bs),
     .bs_dout(bs_dout),
+
+    .map_din(map),
+    .map_dout(map_dout),
 
     .csr_debug_addr(csr_debug_addr),
     .csr_debug_dout(csr_debug_data)

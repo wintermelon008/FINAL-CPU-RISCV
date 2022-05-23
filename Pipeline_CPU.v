@@ -22,8 +22,8 @@
 /*
     ================================  Pipeline_CPU module   ================================
     Author:         Wintermelon
-    Version:        2.0.0
-    Last Edit:      2022.5.18
+    Version:        2.0.1
+    Last Edit:      2022.5.20
 
     This is the cpu topmodule for Pipeline
 
@@ -48,6 +48,9 @@
         * MUX8
         * DEBUG
 */
+
+// ### Version 2.0.1 update ###
+// Add the CSR for map choose
 
 // ### Version 2.0.0 update ###
 // Big news! MAZE runs successfully!
@@ -168,7 +171,6 @@ reg one;
 wire cpu_clk;
 wire pclk;
     
-
 // Screen
 wire hen, ven;
 
@@ -231,7 +233,7 @@ wire [31:0] ccu_ans;
 // CSR
 wire [31:0] csr_radd, csr_wadd, csr_din, csr_dout;
 wire csr_wen;
-
+wire [31:0] csr_map_mux_sel;
 
 // ERROR
 wire [3:0] cpu_error;
@@ -254,6 +256,8 @@ wire [31:0] csr_mux_out;
 wire [2:0] csr_mux_sel;
 // ccu-ans-mux
 wire ccu_ans_mux_sel;
+// screen-mux-sel
+wire [2:0] screen_mux_sel;
 
 
 // FH
@@ -384,6 +388,7 @@ assign b_sr2_mux_sel = ex_b_sr2_mux_sel_fh;
 assign csr_mux_sel = ex_csr_mux_sel_fh;
 assign dm_sr2_mux_sel = ex_dm_sr2_mux_sel_fh;
 assign npc_mux_sel = (npc_mux_sel_pcu == 1'b1) ? 2'b11 : npc_mux_sel_bcu; 
+assign screen_mux_sel = csr_map_mux_sel[2:0];
 assign if_pc = pc_out;
 
 // Below is the debug PC connection
@@ -415,6 +420,7 @@ DM_UNIT dmu(
     .rd(dmu_rd),   // read enable
     .we(dmu_we),   // write enable
     .mode(dmu_mode),
+    .screen_mux_sel(screen_mux_sel),
 
 // DATA
     .dmu_addr(dmu_addr),
@@ -655,6 +661,7 @@ Pipline_CTRL pcu(
     .csr_radd(csr_radd),
     .csr_wadd(csr_wadd),
     .csr_wen(csr_wen),
+    .csr_map_mux_sel(csr_map_mux_sel),
 
     // PC
     .cpu_clk(cpu_clk),
@@ -812,9 +819,6 @@ MUX8 #(32) dm_sr2_mux(
     .sel(dm_sr2_mux_sel),
     .out(dm_sr2_mux_out)
 );
-
-
-
 
 
 // SR1&2 mux sel

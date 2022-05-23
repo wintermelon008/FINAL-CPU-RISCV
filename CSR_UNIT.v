@@ -34,6 +34,8 @@
         mipd (Machine Interrupt Program Done)               address 0x100
         bs (Button Status)                                  address 0x000   
         // none:0 up:1 down:2 left:3 right:4 reset(mid): 5
+        map (Map Choose)                                    address 0x001
+        // none:0, maze_map:1, finish:2
 
 */
 
@@ -70,6 +72,9 @@ module CSR_UNIT(
 
     input [31:0] bs_din,
     output [31:0] bs_dout,
+
+    input [31:0] map_din,
+    output [31:0] map_dout,
 
     input [11:0] csr_debug_addr,
     output reg [31:0] csr_debug_dout
@@ -161,6 +166,21 @@ REG #(32) Bs (
     .wen(bs_we)
 );
 
+// map (Map Choose)                                    address 0x001
+// This CSR will save the mux sel for screen output
+// none:0, maze_map:1, finish:2
+
+wire map_we;
+
+assign map_we = csr_we;
+REG #(32) Map (
+    .din(map_din),
+    .dout(map_dout),
+
+    .clk(csr_clk),
+    .rstn(rstn),
+    .wen(map_we)
+);
 
 /*
     mtevc (Machine Trp-Vecor Base-Address Register)     address 0x305
@@ -174,14 +194,16 @@ REG #(32) Bs (
 
 always @(*) begin
     case (csr_debug_addr) 
+    
         32'h305: csr_debug_dout = mtevc_dout;
         32'h342: csr_debug_dout = mcause_dout;
         32'h341: csr_debug_dout = mepc_dout;
         32'h343: csr_debug_dout = mtval_dout;
         32'h100: csr_debug_dout = mipd_dout;
         32'h000: csr_debug_dout = bs_dout;
-        
+        32'h001: csr_debug_dout = map_dout;
         default: csr_debug_dout = 32'h0;
+
     endcase
 end
 
