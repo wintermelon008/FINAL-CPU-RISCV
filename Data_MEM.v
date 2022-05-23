@@ -76,7 +76,6 @@ screen_data dm_block (
     .douta(dm_dout),
 
     .clkb(slow_clk),    // input wire clkb
-    .enb(1'b1),
     .addrb(screen_addr),  // input wire [14 : 0] addrb
     .web(1'b0),
     .dinb(12'b0),
